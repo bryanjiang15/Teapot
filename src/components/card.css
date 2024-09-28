@@ -1,0 +1,41 @@
+.char-card {
+    display: flex;
+    flex-direction: column;
+    width: 120px;
+    border: solid;
+    border-width: 2px;
+    padding: 5px;
+}
+
+.health-power{
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    height: 100%;
+    justify-items: center;
+    border-bottom: solid;
+}
+
+.picture{
+    height:100%;
+}
+
+.name{
+    border-top: solid;
+    height: 100%;
+}
+
+.health{
+    width:100%;
+    height: 100%;
+}
+
+.power{
+    width: 100%;
+    height: 100%;
+}
+
+.emoji{
+    
+}
+
