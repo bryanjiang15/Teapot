@@ -1,9 +1,9 @@
 import LlamaAI from "llamaai";
-const apiToken = 'LA-06f05dab438246fe86d4ffeccb94fd9601b15725c8334cd0ab0ea883b3c254f7';
+const apiToken = 'SECRET_KEY';
 const llamaAPI = new LlamaAI(apiToken);
 
-let firstWord = "Maxwell's equation";
-let secondWord = 'Sun';
+let firstWord = "Water";
+let secondWord = 'Lake';
 
 let systemPrompt = "You are a helpful assistant that helps people to craft new things by combining two words." + 
 "The most important rules that you have to follow with every single answer that you are not allowed to use the words" +
@@ -14,6 +14,7 @@ firstWord + " and " + secondWord + " as part of your answer and that you are onl
 "The order of the both words does not matter, both are equally important." +
 "The answer has to be related to both words and the context of the words." +
 "The answer can either be a combination of the words or the role of one word in relation to the other." +
+"The answer should either be more detailed or more specific or larger or more impactful that the two words" +
 "Answers can be things, materials, people, companies, animals, occupations, food, places, objects, emotions, events, concepts, natural phenomena, body parts, vehicles, sports, clothing, furniture, technology, buildings, technology, instruments, beverages, plants, academic subjects and everything else you can think of that is a noun." +
 "If the answer is not a real word or a proper noun, return NULL." +
 "Reply with the result of what would happen if you combine {firstWord} and {secondWord}." +
@@ -58,7 +59,7 @@ const apiRequestJson = {
     llamaAPI.run(apiRequestJson)
       .then(response => {
         // Process response
-        console.log(response.choices[0]);
+        console.log(response.choices[0].message);
       })
       .catch(error => {
         // Handle errors

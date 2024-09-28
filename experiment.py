@@ -2,7 +2,7 @@
 from llamaapi import LlamaAPI
 import json
 
-llama = LlamaAPI("LA-06f05dab438246fe86d4ffeccb94fd9601b15725c8334cd0ab0ea883b3c254f7")
+llama = LlamaAPI("SECRET_KEY")
 
 firstWord = "Maxwell's equation"
 secondWord = 'Sun'
