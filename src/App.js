@@ -3,7 +3,18 @@ import './App.css';
 import Card from './components/Card' 
 import { useState } from 'react';
 
+import Drag from './components/Drag';
+import DropArea from './components/Drop';
+
+import { DndProvider } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
+
+
+// import Drag from './components/Drag'
+
 function App() {
+
+  const [droppedItem, setDropped] = useState([]);
 
   const [cards, setCards] = useState([{
     "health": 1,
@@ -11,29 +22,31 @@ function App() {
     "name" : "rat"
   }]);
 
+  const handleDrop = (item) => {
+    const droppedArr = [...droppedItem, item];
+
+    setDropped(droppedArr);
+    console.log("Dropped item", item);
+  }
+
 
   return (
     <div className="App">
-      {/* <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header> */}
+      <DndProvider backend={HTML5Backend}>
+        <div className='card-container'>
+          {cards.map((item, index) => (
+            <Card key={index} health = {item.health} power = {item.power} name = {item.name}></Card>
+          ))}
+        </div>
 
-      <div className='card-container'>
-        {cards.map((item, index) => (
-          <Card key={index} health = {item.health} power = {item.power} name = {item.name}></Card>
-        ))}
-      </div>
+        <div>
+          <Drag isDragging={true} text={'hello1'}></Drag>
+          <Drag isDragging={true} text={'hello2'}></Drag>
+          <Drag isDragging={true} text={'hello3'}></Drag>
+        </div>
+
+        <DropArea onDrop={handleDrop}></DropArea>
+      </DndProvider>
 
     </div>
   );
