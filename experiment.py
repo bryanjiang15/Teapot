@@ -4,7 +4,7 @@ import json
 
 llama = LlamaAPI("LA-06f05dab438246fe86d4ffeccb94fd9601b15725c8334cd0ab0ea883b3c254f7")
 
-firstWord = "maxwell's equations"
+firstWord = "Maxwell's equation"
 secondWord = 'Sun'
 
 systemPrompt = f"""
@@ -16,10 +16,11 @@ DO NOT INCLUDE THE WORDS {firstWord} and {secondWord} as part of the answer!!!!!
 The answer has to be a noun.
 The order of the both words does not matter, both are equally important.
 The answer has to be related to both words and the context of the words.
-The answer can either be a combination of the words or the role of one word in relation to the other.
-Answers can be things, materials, people, companies, animals, occupations, food, places, objects, emotions, events, concepts, natural phenomena, body parts, vehicles, sports, clothing, furniture, technology, buildings, technology, instruments, beverages, plants, academic subjects and everything else you can think of that is a noun.
-If the answer is not a real word or a proper noun, return NULL.
-Reply with the result of what would happen if you combine {firstWord} and {secondWord}. The answer has to be related to both words and the context of the words and may not contain the words themselves. """
+# The answer can either be a combination of the words or the role of one word in relation to the other.
+# Answers can be things, materials, people, companies, animals, occupations, food, places, objects, emotions, events, concepts, natural phenomena, body parts, vehicles, sports, clothing, furniture, technology, buildings, technology, instruments, beverages, plants, academic subjects and everything else you can think of that is a noun.
+# If the answer is not a real word or a proper noun, return NULL.
+# Reply with the result of what would happen if you combine {firstWord} and {secondWord}. 
+# The answer has to be related to both words and the context of the words and may not contain the words themselves. """
 answerPrompt = f"{firstWord} and {secondWord}"
 
 api_request_json = {
@@ -44,7 +45,7 @@ api_request_json = {
                         "description": "Explain how the answer is related to the two words",
                     },
                     "other": {
-                        "type": "list",
+                        "type": "string",
                         "description": "Other answer that could be the answer",
                     }
                 },
@@ -74,7 +75,7 @@ common rarity: 10-70 power, rare rarity: 50-120 power, epic rarity: 80-150 power
 The power can be randomized within the range of the rarity, and the power can als be based on the size of the object described by the word, the importance of the word in its category, the danger of the object described by the word.
 Reply with the name, description, rarity, and power of the card based on the input word.
 """
-albumAnswerPrompt = "maxwell's equations"
+albumAnswerPrompt = "Maxwell's equation"
 card_api_request_json = {
     "model": "llama3.1-70b",
     "messages": [
@@ -97,7 +98,7 @@ card_api_request_json = {
                         "description": "Description of the card",
                     },
                     "rarity": {
-                        "type": "list",
+                        "type": "string",
                         "description": "Rarity of the card: common, rare, epic, legendary",
                     },
                     "power": {
@@ -106,11 +107,11 @@ card_api_request_json = {
                     }
                 },
             },
-            "required": ["answer"],
+            "required": ["name", "description", "rarity", "power"],
         }
     ],
     "stream": False,
-    "function_call": "get_combined_word",
+    "function_call": "get_card",
 }
 
 response = llama.run(card_api_request_json)
