@@ -84,17 +84,13 @@ function App() {
     const temp = cards.slice();
     temp.forEach(card => {
       if(card==item.card){
-        console.log(card.name+" "+item.card.name);
         const index = temp.indexOf(card);
         temp.splice(index, 1);
       }
     });
-    console.log("did not find "+item.card.name);
 
     setCards(temp);
-    setDropped([...droppedItem, item.text]);
-
-    console.log(temp);
+    setDropped([...droppedItem, item]);
   }
 
 

@@ -1,4 +1,5 @@
 import { useDrop } from 'react-dnd';
+import Card from './Card';
 
 export default function DropArea({ onDrop, droppedArr }) {
   const [{ isOver }, dropRef] = useDrop({
@@ -23,7 +24,7 @@ export default function DropArea({ onDrop, droppedArr }) {
       <div>
         {
             droppedArr.map((item, index) => (
-                <p key={index}>{item}</p>
+                <Card key = {item.card.id} card = {item.card}></Card>
             ))
         }
       </div>
