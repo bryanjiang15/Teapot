@@ -1,7 +1,7 @@
 import logo from './logo.svg';
 import './App.css';
-import './llama.js';
-import Card from './components/Card' 
+import { get_combined_word } from './llama.js';
+import Card from './components/card' 
 import { useState } from 'react';
 
 import Drag from './components/Drag';
@@ -28,6 +28,7 @@ function App() {
 
     setDropped(droppedArr);
     console.log("Dropped item", item);
+    return get_combined_word("Fire", "Rain");
   }
 
 
@@ -41,9 +42,10 @@ function App() {
         </div>
 
         <div>
-          <Drag isDragging={true} text={'hello1'}></Drag>
-          <Drag isDragging={true} text={'hello2'}></Drag>
-          <Drag isDragging={true} text={'hello3'}></Drag>
+          <Drag isDragging={true} text={'water'}></Drag>
+          <Drag isDragging={true} text={'fire'}></Drag>
+          <Drag isDragging={true} text={'earth'}></Drag>
+          <Drag isDragging={true} text={'air'}></Drag>
         </div>
 
         <DropArea onDrop={handleDrop}></DropArea>
