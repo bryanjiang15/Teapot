@@ -14,6 +14,7 @@ export default function Drag({ isDragging, text }) {
     }),
     []
   )
+
   return (
     <div ref={dragRef} style={{ opacity }}>
       {text}

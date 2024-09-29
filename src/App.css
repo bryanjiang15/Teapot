@@ -36,3 +36,28 @@
     transform: rotate(360deg);
   }
 }
+
+.row-div{
+  display: flex;
+  flex-direction: row;
+  overflow: hidden;
+  height: 100vh;
+}
+
+.column-div{
+  display: flex;
+  flex-direction: column;
+}
+
+.width-max{
+  width: 100%;
+}
+
+.width-right{
+  width: 20%;
+}
+
+.card-container{
+  align-items: center;
+  overflow-y: scroll;
+}
