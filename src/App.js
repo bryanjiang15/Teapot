@@ -1,6 +1,6 @@
 // import logo from './logo.svg';
 import './App.css';
-// import { get_combined_word } from './llama.js';
+import { get_combined_word } from './llama.js';
 import { useState } from 'react';
 
 import Drag from './components/Drag';
@@ -94,6 +94,12 @@ function App() {
     setCards(temp);
     setDropped([...droppedItem, item.text]);
 
+    if(droppedItem.length==2){
+      get_combined_word("subway", item.card.name)
+      const cleared = [];
+      setDropped(cleared);
+    }
+    
     console.log(temp);
   }
 
