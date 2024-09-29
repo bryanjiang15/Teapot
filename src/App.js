@@ -1,7 +1,7 @@
-import logo from './logo.svg';
+// import logo from './logo.svg';
 import './App.css';
-import { get_combined_word } from './llama.js';
-import Card from './components/card' 
+// import { get_combined_word } from './llama.js';
+import Card from './components/Card' 
 import { useState } from 'react';
 
 import Drag from './components/Drag';
