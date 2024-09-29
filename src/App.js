@@ -23,9 +23,40 @@ function App() {
   ]));
 
   const [cards, setCards] = useState([{
-    "health": 1,
+    "health": 2,
     "power": 1,
-    "name" : "rat"
+    "name" : "rat",
+    "emoticon" : "🐀"
+  },
+  {
+    "health": 1,
+    "power": 6,
+    "name" : "big mountain",
+    "emoticon" : "🗻"
+  },
+  {
+    "health": 3,
+    "power": 3,
+    "name" : "moyai",
+    "emoticon" : "🗿"
+  },
+  {
+    "health": 10000,
+    "power": 50000,
+    "name" : "fucking japan",
+    "emoticon" : "🗾"
+  },
+  {
+    "health": 5,
+    "power": 1,
+    "name" : "a bus stop",
+    "emoticon" : "🚏"
+  },
+  {
+    "health": 7,
+    "power": 7,
+    "name" : "skibidi",
+    "emoticon" : "🚽"
   }]);
 
   const handleDrop = (item) => {
@@ -56,25 +87,26 @@ function App() {
 
   return (
     <div className="App">
-      <DndProvider backend={HTML5Backend}>
-        <div className='card-container'>
-          {cards.map((item, index) => (
-            <Card key={index} health = {item.health} power = {item.power} name = {item.name}></Card>
-          ))}
-        </div>
+      <div className='row-div'>
+          <DndProvider backend={HTML5Backend}>
+            {/* <div className='width-max'>
+              {
+                Array.from(cardsOwned.entries()).map((item, index) => (
+                  <Drag isDragging={true} key={index} text={item[0]}></Drag> 
+                ))
+              }
+            </div> */}
 
-        <div>
-          {
-            Array.from(cardsOwned.entries()).map((item, index) => (
-              <Drag isDragging={true} key={index} text={item[0]}></Drag> 
-            ))
-          }
-        </div>
+            <DropArea onDrop={handleDrop} droppedArr={droppedItem}>
+            </DropArea>
 
-        <DropArea onDrop={handleDrop} droppedArr={droppedItem}>
-        </DropArea>
-      </DndProvider>
-
+            <div className='card-container column-div width-right'>
+              {cards.map((item, index) => (
+                <Card key={index} card = {item}></Card>
+              ))}
+            </div>
+          </DndProvider>
+      </div>
     </div>
   );
 }

@@ -13,8 +13,8 @@ export default function DropArea({ onDrop, droppedArr }) {
     <div
       ref={dropRef}
       style={{
-        height: '200px',
-        width: '200px',
+        height: '',
+        width: '100%',
         backgroundColor: isOver ? 'lightgreen' : 'lightblue',
         padding: '16px',
       }}
