@@ -18,9 +18,9 @@ function App() {
   const [droppedItem, setDropped] = useState([]);
 
   const [cardsOwned, setOwned] = useState(new Map([
-    ["hello1", 1],
-    ["hello2", 1],
-    ["hello3", 1]
+    ["fire", 1],
+    ["water", 2],
+    ["earth", 3]
   ]));
 
   const [cards, setCards] = useState([{
@@ -76,10 +76,17 @@ function App() {
 
     // setDropped(droppedMap);
 
-    const temp = new Map(cardsOwned);
-    temp.delete(item.text);
+    const temp = cards.slice();
+    temp.forEach(card => {
+      if(card==item.card){
+        console.log(card.name+" "+item.card.name);
+        const index = temp.indexOf(card);
+        temp.splice(index, 1);
+      }
+    });
+    console.log("did not find "+item.card.name);
 
-    setOwned(temp);
+    setCards(temp);
     setDropped([...droppedItem, item.text]);
 
     console.log(temp);
@@ -93,7 +100,12 @@ function App() {
             {/* <div className='width-max'>
               {
                 Array.from(cardsOwned.entries()).map((item, index) => (
-                  <Drag isDragging={true} key={index} text={item[0]}></Drag> 
+                  <Drag isDragging={true} key={index} card={{
+                    "health": 1,
+                    "power": 6,
+                    "name" : "big mountain",
+                    "emoticon" : "🗻"
+                  }}></Drag> 
                 ))
               }
             </div> */}
@@ -103,7 +115,7 @@ function App() {
 
             <div className='card-container column-div width-right'>
               {cards.map((item, index) => (
-                <Card key={index} card = {item}></Card>
+                <Drag isDragging={true} key={index} card = {item}></Drag>
               ))}
             </div>
           </DndProvider>
