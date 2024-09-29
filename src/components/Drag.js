@@ -1,5 +1,5 @@
 import { useDrag } from 'react-dnd'
-import Card from './Card' 
+import Card from './card' 
 
 /**
  * Your Component
@@ -18,7 +18,7 @@ export default function Drag({ isDragging, card }) {
 
   return (
     <div ref={dragRef} style={{ opacity }}>
-      <Card card={card}></Card>
+      <Card key={1} card={card}></Card>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 // import logo from './logo.svg';
 import './App.css';
-// import { get_combined_word } from './llama.js';
+import { get_combined_word } from './llama.js';
 import { useState } from 'react';
 
 import Drag from './components/Drag';
@@ -13,7 +13,6 @@ import { HTML5Backend } from 'react-dnd-html5-backend'
 // import Drag from './components/Drag'
 
 function App() {
-
   const [droppedItem, setDropped] = useState([]);
 
   const [cardsOwned, setOwned] = useState(new Map([
@@ -47,7 +46,7 @@ function App() {
     "id" : 4,
     "health": 10000,
     "power": 50000,
-    "name" : "fucking japan",
+    "name" : "japan",
     "emoticon" : "🗾"
   },
   {
@@ -63,34 +62,45 @@ function App() {
     "power": 7,
     "name" : "skibidi",
     "emoticon" : "🚽"
-  }]);
+  },
+  {
+    "id" : 7,
+    "health": 777,
+    "power": 8,
+    "name" : "spongebob",
+    "emoticon" : "🧽"
+  },]);
 
-  const handleDrop = (item) => {
+  const [id, setId] = useState(7);
 
-    // const droppedMap = new Map(droppedItem);
+  const handleDrop = async (item) => {
 
-    // if(droppedMap.has(item.text)){
-    //   let temp = droppedMap.get(item.text) + 1;
 
-    //   droppedMap.set(item.text, temp);
-    // }
 
-    // else{
-    //   droppedMap.set(item.text, 1);
-    // }
-
-    // setDropped(droppedMap);
-
-    const temp = cards.slice();
-    temp.forEach(card => {
-      if(card==item.card){
-        const index = temp.indexOf(card);
-        temp.splice(index, 1);
-      }
-    });
+    let temp = cards.slice();
+    // temp.forEach(card => {
+    //   if(card==item.card){
+    //     const index = temp.indexOf(card);
+    //     temp.splice(index, 1);
+    //   }
+    // });
 
     setCards(temp);
     setDropped([...droppedItem, item]);
+    
+    if(droppedItem.length==1){
+      const cleared = [];
+      setDropped(cleared);
+
+      let card = await get_combined_word(item.card.name, droppedItem[0].card.name, id+1, setId, setCards, temp);
+
+      // console.log(card);
+      // temp.push(card);
+      // console.log(temp);
+    }
+
+    //setCards(temp);
+    
   }
 
 
@@ -126,3 +136,4 @@ function App() {
 }
 
 export default App;
+
