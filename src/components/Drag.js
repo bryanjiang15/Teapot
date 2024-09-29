@@ -1,13 +1,14 @@
 import { useDrag } from 'react-dnd'
+import Card from './card' 
 
 /**
  * Your Component
  */
-export default function Drag({ isDragging, text }) {
+export default function Drag({ isDragging, card }) {
   const [{ opacity }, dragRef] = useDrag(
     () => ({
       type: 'card',
-      item: { text },
+      item: { card },
       collect: (monitor) => ({
         opacity: monitor.isDragging() ? 0.5 : 1
       })
@@ -17,7 +18,7 @@ export default function Drag({ isDragging, text }) {
 
   return (
     <div ref={dragRef} style={{ opacity }}>
-      {text}
+      <Card key={1} card={card}></Card>
     </div>
   )
 }
