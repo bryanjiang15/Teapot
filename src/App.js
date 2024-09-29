@@ -16,6 +16,12 @@ function App() {
 
   const [droppedItem, setDropped] = useState([]);
 
+  const [cardsOwned, setOwned] = useState(new Map([
+    ["hello1", 1],
+    ["hello2", 1],
+    ["hello3", 1]
+  ]));
+
   const [cards, setCards] = useState([{
     "health": 1,
     "power": 1,
@@ -23,10 +29,28 @@ function App() {
   }]);
 
   const handleDrop = (item) => {
-    const droppedArr = [...droppedItem, item];
 
-    setDropped(droppedArr);
-    console.log("Dropped item", item);
+    // const droppedMap = new Map(droppedItem);
+
+    // if(droppedMap.has(item.text)){
+    //   let temp = droppedMap.get(item.text) + 1;
+
+    //   droppedMap.set(item.text, temp);
+    // }
+
+    // else{
+    //   droppedMap.set(item.text, 1);
+    // }
+
+    // setDropped(droppedMap);
+
+    const temp = new Map(cardsOwned);
+    temp.delete(item.text);
+
+    setOwned(temp);
+    setDropped([...droppedItem, item.text]);
+
+    console.log(temp);
   }
 
 
@@ -40,12 +64,15 @@ function App() {
         </div>
 
         <div>
-          <Drag isDragging={true} text={'hello1'}></Drag>
-          <Drag isDragging={true} text={'hello2'}></Drag>
-          <Drag isDragging={true} text={'hello3'}></Drag>
+          {
+            Array.from(cardsOwned.entries()).map((item, index) => (
+              <Drag isDragging={true} key={index} text={item[0]}></Drag> 
+            ))
+          }
         </div>
 
-        <DropArea onDrop={handleDrop}></DropArea>
+        <DropArea onDrop={handleDrop} droppedArr={droppedItem}>
+        </DropArea>
       </DndProvider>
 
     </div>
