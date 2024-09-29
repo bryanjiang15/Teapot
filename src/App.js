@@ -1,7 +1,6 @@
 // import logo from './logo.svg';
 import './App.css';
 // import { get_combined_word } from './llama.js';
-import Card from './components/Card' 
 import { useState } from 'react';
 
 import Drag from './components/Drag';
@@ -24,36 +23,42 @@ function App() {
   ]));
 
   const [cards, setCards] = useState([{
+    "id" : 1,
     "health": 2,
     "power": 1,
     "name" : "rat",
     "emoticon" : "🐀"
   },
   {
+    "id" : 2,
     "health": 1,
     "power": 6,
     "name" : "big mountain",
     "emoticon" : "🗻"
   },
   {
+    "id" : 3,
     "health": 3,
     "power": 3,
     "name" : "moyai",
     "emoticon" : "🗿"
   },
   {
+    "id" : 4,
     "health": 10000,
     "power": 50000,
     "name" : "fucking japan",
     "emoticon" : "🗾"
   },
   {
+    "id" : 5,
     "health": 5,
     "power": 1,
     "name" : "a bus stop",
     "emoticon" : "🚏"
   },
   {
+    "id" : 6,
     "health": 7,
     "power": 7,
     "name" : "skibidi",
@@ -115,7 +120,7 @@ function App() {
 
             <div className='card-container column-div width-right'>
               {cards.map((item, index) => (
-                <Drag isDragging={true} key={index} card = {item}></Drag>
+                <Drag isDragging={true} key={item.id} card = {item}></Drag>
               ))}
             </div>
           </DndProvider>
