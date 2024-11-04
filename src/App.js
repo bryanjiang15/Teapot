@@ -92,7 +92,7 @@ function App() {
       const cleared = [];
       setDropped(cleared);
 
-      let card = await get_combined_word(item.card.name, droppedItem[0].card.name, id+1, setId, setCards, temp);
+      let card = await get_combined_word(item.card.name, droppedItem[0].card.name, id, setId, setCards, temp);
 
       // console.log(card);
       // temp.push(card);
