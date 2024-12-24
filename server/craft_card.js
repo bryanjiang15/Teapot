@@ -1,10 +1,41 @@
 import LlamaAI from "llamaai";
-import {LLAMA_SECRET_KEY} from "./env.js";
-import Card from './components/card' 
+import {LLAMA_SECRET_KEY, OPENAI_API_KEY} from "../src/env.js";
+import {db} from "./database.js";
+import OpenAI from "openai";
+// import { fileURLToPath } from "url";
+// import path from "path";
+// import { getLlama, LlamaChatSession, LlamaContext, LlamaJsonSchemaGrammar, LlamaModel } from "node-llama-cpp";
+//import Card from './components/card' 
 const apiToken = LLAMA_SECRET_KEY;
+const openaiToken = OPENAI_API_KEY;
 
-async function get_combined_word(firstWord, secondWord, id, setId, setCards, cards) {
+async function craft_new_word_from_cache(firstWord, secondWord) {
+    let cachedResult = await db.get('SELECT result, emoji FROM word_cache WHERE first_word = ? AND second_word = ?', [firstWord, secondWord]);
+    if (cachedResult) {
+        return cachedResult;
+    }
+
+    cachedResult = await db.get('SELECT result, emoji FROM word_cache WHERE first_word = ? AND second_word = ?', [secondWord, firstWord]);
+
+    return cachedResult;
+}
+
+async function cacheNewWord(firstWord, secondWord, result, emoji) {
+    await db.run('INSERT INTO word_cache (first_word, second_word, result, emoji) VALUES (?, ?, ?, ?)', [firstWord, secondWord, result, emoji]);
+}
+
+async function craft_new_word(firstWord, secondWord, id, setId, setCards, cards) {
+    const cachedResult = await craft_new_word_from_cache(firstWord, secondWord);
+    if (cachedResult) {
+        return cachedResult;
+    }
+    const openai = new OpenAI({
+        apiKey: openaiToken,
+        //baseURL: "https://api.llama-api.com"
+    }
+    );
     const llamaAPI = new LlamaAI(apiToken);
+
     let systemPrompt = "You are a helpful assistant that helps people to craft new things in a merging game by combining two words." + 
     "The most important rules that you have to follow with every single answer that you are not allowed to use the words" +
     firstWord + " and " + secondWord + " as part of your answer and that you are only allowed to answer with one thing." +
@@ -25,24 +56,26 @@ async function get_combined_word(firstWord, secondWord, id, setId, setCards, car
 
     // Build the Request
     const apiRequestJson = {
-        "messages": [
+        model: "gpt-4o-mini",
+        messages: [
             {"role": "system", "content": systemPrompt},
             {"role": "user", "content": answerPrompt},
         ],
-        "functions": [
-            {
-                "name": "get_combined_word",
-                "description": "Get the combined word of two words",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "answer": {
-                            "type": "string",
-                            "description": "One word or One phrase that is the result of combining the two words.",
+        tools: [{
+            type: 'function',
+            function:{
+                name: "get_combined_word",
+                description: "Get the combined word of two words",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        answer: {
+                            type: "string",
+                            description: "One word or One phrase that is the result of combining the two words.",
                         },
-                        "explanation": {
-                            "type": "string",
-                            "description": "Explain how the answer is related to the two words",
+                        explanation: {
+                            type: "string",
+                            description: "Explain how the answer is related to the two words",
                         },
                         // "other": {
                         //     "type": "string",
@@ -50,12 +83,15 @@ async function get_combined_word(firstWord, secondWord, id, setId, setCards, car
                         // }
                     },
                 },
-                "required": ["answer"],
+                required: ["answer"],
             }
-        ],
-        "stream": false,
-        "function_call": "get_combined_word",
+        }],
+        // stream: false,
+        // function_call: "get_combined_word",
     };
+
+    const response = await openai.completions.create(apiRequestJson);
+    console.log(response.choices[0].message);
     
     let ai_response = null;
     // Execute the Request
@@ -63,13 +99,40 @@ async function get_combined_word(firstWord, secondWord, id, setId, setCards, car
         .then(response => {
         // Process response
         ai_response = response;
-        console.log(response.choices[0].message);
         })
         .catch(error => {
         // Handle errors
         });
     
-    let combined_word = ai_response.choices[0].message.function_call.arguments.answer;
+        let combined_word = "";
+        if(ai_response.choices[0].message.function_call==null){
+            combined_word = ai_response.choices[0].message.content;
+        }else{
+            combined_word = ai_response.choices[0].message.function_call.arguments.answer;
+        }
+
+    cacheNewWord(firstWord, secondWord, combined_word, "🃏");
+
+    return {result: combined_word, emoji: "🃏"};
+
+}
+
+async function craft_new_card_from_cache(word) {
+    let cachedResult = await db.get('SELECT name, rarity, power, emoji, health FROM card_cache WHERE name = ?', [word]);
+    return cachedResult;
+}
+
+async function cacheNewCard(word, name, rarity, power, emoji, health) {
+    await db.run('INSERT INTO card_cache (name, rarity, power, emoji, health) VALUES (?, ?, ?, ?, ?)', [word, name, rarity, power, emoji, health]);
+}
+
+async function craft_new_card(word) {
+    const cachedResult = await craft_new_card_from_cache(word);
+    if (cachedResult) {
+        return cachedResult;
+    }
+
+    const llamaAPI = new LlamaAI(apiToken);
     // let albumSystemPrompt = "You are a helpful assistant that helps people design new cards in a trading card game based on an input word." +
     // "Every card must include a name, emoji, health, rarity, and power." +
     // "The name of the card is the word inputed by the user." +
@@ -89,16 +152,16 @@ async function get_combined_word(firstWord, secondWord, id, setId, setCards, car
     "Power ranges from 10 to 200, based on the word's importance in its category." +
     "YOU MUST Provide the card's name, emoji, health, and power.";
     
-    let albumAnswerPrompt = combined_word
+    let albumAnswerPrompt = word
     const card_api_request_json = {
-        "model": "llama3.1-70b",
+        "model": "mistral-7b-instruct",
         "messages": [
             {"role": "system", "content": albumSystemPrompt},
             {"role": "user", "content": albumAnswerPrompt},
         ],
         "functions": [
             {
-                "name": "get_card",
+                "name": "create_card",
                 "description": "Get the design of the card based on the input word",
                 "parameters": {
                     "type": "object",
@@ -125,17 +188,19 @@ async function get_combined_word(firstWord, secondWord, id, setId, setCards, car
             }
         ],
         "stream": false,
-        "function_call": "get_card",
+        "function_call": {"name": "create_card"},
     }
+    
 
-    setId(id + 1);
+    
+    //setId(id + 1);
 
     let card_response = null;
     await llamaAPI.run(card_api_request_json)
         .then(response => {
         // Process response
-        card_response = response;
-        console.log(response);
+        card_response = response.choices[0].message;
+        console.log(response.choices[0].message);
         })
         .catch(error => {
         // Handle errors
@@ -144,6 +209,8 @@ async function get_combined_word(firstWord, secondWord, id, setId, setCards, car
         console.log("Card response is null");
         return null;
     }
+
+    
     let combined_card = {
         "name": card_response.choices[0].message.function_call.arguments.name,
         "rarity": card_response.choices[0].message.function_call.arguments.rarity,
@@ -151,17 +218,18 @@ async function get_combined_word(firstWord, secondWord, id, setId, setCards, car
         "emoji": card_response.choices[0].message.function_call.arguments.emoji,
         "health": card_response.choices[0].message.function_call.arguments.health
     }
+
+    cacheNewCard(word, combined_card.name, combined_card.rarity, combined_card.power, combined_card.emoji, combined_card.health);
     
-    console.log(combined_card);
+    return combined_card;
 
-
-    let card = {
-        "id": id+1,
-        "health": combined_card.health,
-        "power": combined_card.power,
-        "name": combined_card.name,
-        "emoticon": combined_card.emoji
-    };
+    // let card = {
+    //     "id": id+1,
+    //     "health": combined_card.health,
+    //     "power": combined_card.power,
+    //     "name": combined_card.name,
+    //     "emoticon": combined_card.emoji
+    // };
 
     // let card = {
     //     "id": id,
@@ -171,10 +239,36 @@ async function get_combined_word(firstWord, secondWord, id, setId, setCards, car
     //     "emoticon": "🃏"
     // }
 
-    cards.unshift(card);
-    setCards([...cards]);
-    console.log(cards);
-
-    return;
-
+    // cards.unshift(card);
+    // setCards([...cards]);
+    // console.log(cards);
+    
 }
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+async function setupLlama() {
+
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const llama =await getLlama();
+    const model = await llama.loadModel({
+        modelPath: path.join(__dirname, "models", "mistral-7b-instruct-v0.1.Q4_K_M.gguf"),
+    });
+    const context = await model.createContext();
+    const session = new LlamaChatSession({
+        contextSequence: context.getSequence(),
+    });
+
+    const grammar = await llama.createGrammarForJsonSchema({
+        "type": "object",
+        "properties": {
+            "answer": {
+                "type": "string"
+            },
+        }
+    });
+}
+
+export { craft_new_word, capitalizeFirstLetter, craft_new_card };

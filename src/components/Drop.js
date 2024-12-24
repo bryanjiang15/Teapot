@@ -1,5 +1,5 @@
 import { useDrop } from 'react-dnd';
-import Card from './card';
+import Card from './card.js';
 
 export default function DropArea({ onDrop, droppedArr }) {
   const [{ isOver }, dropRef] = useDrop({

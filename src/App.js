@@ -3,11 +3,12 @@ import './App.css';
 import { get_combined_word } from './llama.js';
 import { useState } from 'react';
 
-import Drag from './components/Drag';
-import DropArea from './components/Drop';
+import Drag from './components/Drag.js';
+import DropArea from './components/Drop.js';
 
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
+import axios from 'axios';
 
 
 // import Drag from './components/Drag'
@@ -92,8 +93,19 @@ function App() {
       const cleared = [];
       setDropped(cleared);
 
-      let card = await get_combined_word(item.card.name, droppedItem[0].card.name, id, setId, setCards, temp);
+      //let card = await get_combined_word(item.card.name, droppedItem[0].card.name, id, setId, setCards, temp);
+      const response = await axios.post('http://localhost:3001/', {
+        first: item.card.name,
+        second: droppedItem[0].card.name
+      })
+      let word = response.data;
+      console.log(word);
 
+      const card_response = await axios.post('http://localhost:3001/new-card', {
+        word: word.result
+      })
+      let card = card_response.data;
+      console.log(card);
       // console.log(card);
       // temp.push(card);
       // console.log(temp);

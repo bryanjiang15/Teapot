@@ -1,6 +1,6 @@
 import LlamaAI from "llamaai";
 import {LLAMA_SECRET_KEY} from "./env.js";
-import Card from './components/card' 
+import Card from './components/card.js' 
 const apiToken = LLAMA_SECRET_KEY;
 
 

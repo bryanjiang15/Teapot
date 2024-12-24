@@ -12,6 +12,6 @@
   "license": "ISC",
   "dependencies": {
     "@fastify/cors": "^10.0.1",
-    "node-llama-cpp": "^3.2.0"
+    "node-llama-cpp": "^3.3.1"
   }
 }
