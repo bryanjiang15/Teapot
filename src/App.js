@@ -33,15 +33,15 @@ function App() {
     "id" : 2,
     "health": 1,
     "power": 6,
-    "name" : "big mountain",
+    "name" : "mountain",
     "emoticon" : "🗻"
   },
   {
     "id" : 3,
     "health": 3,
     "power": 3,
-    "name" : "moyai",
-    "emoticon" : "🗿"
+    "name" : "google",
+    "emoticon" : "🔍"
   },
   {
     "id" : 4,
@@ -54,22 +54,22 @@ function App() {
     "id" : 5,
     "health": 5,
     "power": 1,
-    "name" : "a bus stop",
+    "name" : "bus stop",
     "emoticon" : "🚏"
   },
   {
     "id" : 6,
     "health": 7,
     "power": 7,
-    "name" : "skibidi",
-    "emoticon" : "🚽"
+    "name" : "water",
+    "emoticon" : "🌊"
   },
   {
     "id" : 7,
     "health": 777,
     "power": 8,
-    "name" : "spongebob",
-    "emoticon" : "🧽"
+    "name" : "fire",
+    "emoticon" : "🔥"
   },]);
 
   const [id, setId] = useState(7);
@@ -106,9 +106,20 @@ function App() {
       })
       let card = card_response.data;
       console.log(card);
-      // console.log(card);
-      // temp.push(card);
-      // console.log(temp);
+
+      setId(id + 1);
+
+      card = {
+        "id" : id+1,
+        "health": card.health,
+        "power": Math.floor(Math.random() * (100 - 10 + 1)) + 10,
+        "name" : card.name,
+        "emoticon" : word.emoji
+      }
+
+      cards.unshift(card);
+      setCards([...cards]);
+      console.log(cards);
     }
 
     //setCards(temp);

@@ -3,10 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@huggingface/inference": "^2.8.1",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
     "axios": "^1.7.7",
+    "dotenv": "^16.4.7",
     "fastify": "^5.0.0",
     "fastify-cli": "^7.0.1",
     "fs": "^0.0.1-security",

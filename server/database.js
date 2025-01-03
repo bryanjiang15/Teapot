@@ -28,8 +28,7 @@ async function initializeDatabase() {
             id INTEGER PRIMARY KEY,
             name TEXT,
             rarity TEXT,
-            power INTEGER,
-            emoji TEXT,
+            category TEXT,
             health INTEGER
         )
     `);
