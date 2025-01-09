@@ -1,9 +1,26 @@
 import React from 'react'
 import './card.css';
+import { useDrag } from 'react-dnd'
+
 
 const Card = ({card}) => {
+  const [{isDragging}, dragRef] = useDrag({
+    type: 'CARD',
+    item: {card: card},
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
   return (
-    <div className='char-card'>
+    <div 
+      ref={dragRef}
+      style={{
+        opacity: isDragging ? 0.5 : 1,
+        cursor: 'move',
+      }}
+      className='char-card'
+    >
         <div className='health-power'>
           <p className='health'>{card.health}</p>
           <p className='power'>{card.power}</p>

@@ -1,5 +1,5 @@
 import { useDrag } from 'react-dnd'
-import Card from './card.js' 
+import Card from './Card.js' 
 
 /**
  * Your Component

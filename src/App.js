@@ -1,20 +1,20 @@
 // import logo from './logo.svg';
 import './App.css';
-import { get_combined_word } from './llama.js';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
-import Drag from './components/Drag.js';
 import DropArea from './components/Drop.js';
 
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import axios from 'axios';
+import Card from './components/Card.js';
+import CardList from './components/CardList.js';
+import { debounce } from 'lodash';
 
 
 // import Drag from './components/Drag'
 
 function App() {
-  const [droppedItem, setDropped] = useState([]);
 
   const [cardsOwned, setOwned] = useState(new Map([
     ["fire", 1],
@@ -74,57 +74,39 @@ function App() {
 
   const [id, setId] = useState(7);
 
-  const handleDrop = async (item) => {
+  const combineCards = debounce(async (dropped) => {
+    //let card = await get_combined_word(item.card.name, droppedItem[0].card.name, id, setId, setCards, temp);
+    const response = await axios.post('http://localhost:3001/', {
+      first: dropped[0].card.name,
+      second: dropped[1].card.name
+    })
+    let word = response.data;
+    console.log(word);
 
+    const card_response = await axios.post('http://localhost:3001/new-card', {
+      word: word.result
+    })
+    let card = card_response.data;
+    console.log(card);
 
+    setId(id + 1);
 
-    let temp = cards.slice();
-    // temp.forEach(card => {
-    //   if(card==item.card){
-    //     const index = temp.indexOf(card);
-    //     temp.splice(index, 1);
-    //   }
-    // });
-
-    setCards(temp);
-    setDropped([...droppedItem, item]);
-    
-    if(droppedItem.length==1){
-      const cleared = [];
-      setDropped(cleared);
-
-      //let card = await get_combined_word(item.card.name, droppedItem[0].card.name, id, setId, setCards, temp);
-      const response = await axios.post('http://localhost:3001/', {
-        first: item.card.name,
-        second: droppedItem[0].card.name
-      })
-      let word = response.data;
-      console.log(word);
-
-      const card_response = await axios.post('http://localhost:3001/new-card', {
-        word: word.result
-      })
-      let card = card_response.data;
-      console.log(card);
-
-      setId(id + 1);
-
-      card = {
-        "id" : id+1,
-        "health": card.health,
-        "power": Math.floor(Math.random() * (100 - 10 + 1)) + 10,
-        "name" : card.name,
-        "emoticon" : word.emoji
-      }
-
-      cards.unshift(card);
-      setCards([...cards]);
-      console.log(cards);
+    card = {
+      "id" : id+1,
+      "health": card.health,
+      "power": Math.floor(Math.random() * (100 - 10 + 1)) + 10,
+      "name" : card.name,
+      "emoticon" : word.emoji
     }
+
+    cards.unshift(card);
+    setCards([...cards]);
+    console.log(cards);
+    
 
     //setCards(temp);
     
-  }
+  }, 100, { leading: true, trailing: false });
 
 
   return (
@@ -144,14 +126,9 @@ function App() {
               }
             </div> */}
 
-            <DropArea onDrop={handleDrop} droppedArr={droppedItem}>
+            <DropArea onCombineCards={combineCards}>
             </DropArea>
-
-            <div className='card-container column-div width-right'>
-              {cards.map((item, index) => (
-                <Drag isDragging={true} key={item.id} card = {item}></Drag>
-              ))}
-            </div>
+            <CardList cards={cards}></CardList>
           </DndProvider>
       </div>
     </div>

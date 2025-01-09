@@ -1,18 +1,31 @@
 import { useDrop } from 'react-dnd';
-import Card from './card.js';
+import Card from './Card.js';
+import { useState } from 'react';
 
-export default function DropArea({ onDrop, droppedArr }) {
-  const [{ isOver }, dropRef] = useDrop({
-    accept: 'card',
-    drop: (item) => onDrop(item),
+export default function DropArea({ onCombineCards }) {
+  const [droppedCards, setDroppedCards] = useState([]);
+
+  const [{ isOver }, drop] = useDrop({
+    accept: 'CARD',
+    drop: (item) => {
+      setDroppedCards((prev) => {
+        const newCards = [...prev, item];
+        if(newCards.length === 2) {
+          onCombineCards(newCards);
+          return [];
+        }else{
+          return newCards;
+        }
+      });
+    },
     collect: (monitor) => ({
-      isOver: !!monitor.isOver(),
+      isOver: monitor.isOver(),
     }),
   });
 
   return (
     <div
-      ref={dropRef}
+      ref={drop}
       style={{
         height: '',
         width: '100%',
@@ -23,7 +36,7 @@ export default function DropArea({ onDrop, droppedArr }) {
       <h1>Drop here</h1>
       <div>
         {
-            droppedArr.map((item, index) => (
+            droppedCards.map((item, index) => (
                 <Card key = {item.card.id} card = {item.card}></Card>
             ))
         }
