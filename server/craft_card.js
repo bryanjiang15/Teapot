@@ -16,7 +16,7 @@ dotenv.config();
 
 const HF_ACCESS_TOKEN = process.env.HF_ACCESS_TOKEN
 const inference = new HfInference(HF_ACCESS_TOKEN);
-const model = "mistralai/Mistral-7B-Instruct-v0.3"
+const model = "mistralai/Mistral-7B-Instruct-v0.2"
 
 async function craft_new_word_from_cache(firstWord, secondWord) {
     let cachedResult = await db.get('SELECT result, emoji FROM word_cache WHERE first_word = ? AND second_word = ?', [firstWord, secondWord]);
@@ -48,9 +48,9 @@ async function craft_new_word(firstWord, secondWord, id, setId, setCards, cards)
     let systemPrompt = "You are a helpful assistant that helps people to craft new things in a merging game by combining two words." + 
     "The most important rules that you have to follow with every single answer that you are not allowed to use the words" +
     firstWord + " and " + secondWord + " as part of your answer and that you are only allowed to answer with one thing." +
-    "DO NOT INCLUDE THE WORDS " + firstWord + " and " + secondWord + " and " + firstWord+secondWord+" as part of the answer!!!!!" +
-    "No sentences, no phrases, no punctuation, no special characters, no numbers, no emojis, no URLs, no code, no commands, no programming." +
-    "The answer HAS TO BE A REAL WORD." +
+    "DO NOT INCLUDE THE WORDS " + firstWord + " and " + secondWord + " or " + firstWord+secondWord+" as part of the answer!!!!!" +
+    "No sentences, no phrases, no punctuation, no special characters like underscore or brackets, no numbers, no emojis, no URLs, no code, no commands, no programming." +
+    "The answer HAS TO BE A REAL WORD. The answer cannot be " + firstWord + " and " + secondWord + " joined together as one word" +
     // "The order of the both words does not matter, both are equally important." +
     "The answer has to be related to both words or the theme of the words, and the word must be a real word even if it is not strongly related to " + firstWord + " and " + secondWord + "." +
     "The answer can either be a combination of the words or how one word is used in the context of the other word." +
@@ -61,6 +61,7 @@ async function craft_new_word(firstWord, secondWord, id, setId, setCards, cards)
     // "If the answer is not a real word or a proper noun, return NULL." +
     "Reply with the result of what would happen if you combine" + firstWord + " and " + secondWord + "." +
     "The answer has to be related to both words and the context of the words and may not contain the words themselves. " +
+    "The answer must be one word or two words separated by space, and it must be a real word. " +
     "also provide an emoji in UTF-8 encoding that represents the word.";
     let answerPrompt = firstWord + " and " + secondWord;
 
@@ -183,12 +184,11 @@ async function craft_new_card(word) {
     // "The power can be randomized within the range of the rarity, and the power can als be based on the size of the object described by the word, the importance of the word in its category, the danger of the object described by the word." +
     // "Reply with the name, emoji, health, rarity, and power of the card based on the input word.";
     let albumSystemPrompt = "You are designing a trading card based on a given word." +
-    "Each card must have a name, rarity, category, and health." +
-    "The card's name is the given word." +
+    "Each card must have a rarity, category, and health." +
     "The card's rarity is based on the word's importance, size, or complexity." +
     "The card's category is the broader type of object the word represents, such as animals, math equations, famous people, etc." +
     "Health is a number from 10 to 200, based on the word's complexity, size, or importance." +
-    "YOU MUST Provide the card's name, rarity, category, and health. Do not provide any other information or text explaning the answer.";
+    "YOU MUST Provide the card's rarity, category, and health. Do not provide any other information or text explaning the answer.";
     
     let albumAnswerPrompt = word
     const card_api_request_json = {
@@ -206,13 +206,14 @@ async function craft_new_card(word) {
                     parameters: {
                         type: "object",
                         properties: {
-                            rarity: {
-                                type: "string",
-                                description: "The rarity of the card based on the word: "+ albumAnswerPrompt,
-                            },
                             category: {
                                 type: "string",
                                 description: "The category of the card based on the word: "+ albumAnswerPrompt,
+                            },
+                            rarity: {
+                                type: "string",
+                                enum: ["common", "rare", "epic", "legendary", "mythic"],
+                                description: "The rarity of the card based on the word: "+ albumAnswerPrompt+ ". One word that is either common, rare, epic, legendary, or mythic.",
                             },
                             health: {
                                 type: "integer",
@@ -221,6 +222,7 @@ async function craft_new_card(word) {
                         },
                     },
                     required: ["rarity", "category", "health"],
+                    strict: true,
                 }
             }
         ],

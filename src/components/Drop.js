@@ -9,10 +9,16 @@ export default function DropArea({ onCombineCards }) {
     accept: 'CARD',
     drop: (item) => {
       setDroppedCards((prev) => {
+        if(prev.length === 2){
+
+          return prev;
+        }
         const newCards = [...prev, item];
         if(newCards.length === 2) {
-          onCombineCards(newCards);
-          return [];
+          // onCombineCards(newCards);
+          // return [];
+          // Moved mergeCard to button press
+          return newCards;
         }else{
           return newCards;
         }
@@ -34,12 +40,18 @@ export default function DropArea({ onCombineCards }) {
       }}
     >
       <h1>Drop here</h1>
-      <div>
+      <div className='card-area'>
         {
             droppedCards.map((item, index) => (
                 <Card key = {item.card.id} card = {item.card}></Card>
             ))
-        }
+        },
+        <button onClick = {() => {
+            if(droppedCards.length === 2){
+                onCombineCards(droppedCards);
+                setDroppedCards([]);
+            }
+        }}>Fuse</button>
       </div>
     </div>
   );

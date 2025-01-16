@@ -1,24 +1,19 @@
 // import logo from './logo.svg';
-import './css/App.css'
+import '../css/App.css'
 import { useCallback, useState } from 'react';
-import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import DropArea from './components/Drop.js';
+import DropArea from '../components/Drop.js';
 
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import axios from 'axios';
-import Card from './components/Card.js';
-import CardList from './components/CardList.js';
+import CardList from '../components/CardList.js';
 import { debounce } from 'lodash';
-
-import Cauldron from './pages/Cauldron.js'
 
 
 // import Drag from './components/Drag'
 
-function App() {
+function Cauldron() {
 
   const [cardsOwned, setOwned] = useState(new Map([
     ["fire", 1],
@@ -125,13 +120,29 @@ function App() {
 
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Cauldron/>}/>
-      </Routes>
-    </BrowserRouter>
+    <div className="Cauldron">
+      <div className='row-div'>
+          <DndProvider backend={HTML5Backend}>
+            {/* <div className='width-max'>
+              {
+                Array.from(cardsOwned.entries()).map((item, index) => (
+                  <Drag isDragging={true} key={index} card={{
+                    "health": 1,
+                    "power": 6,
+                    "name" : "big mountain",
+                    "emoticon" : "🗻"
+                  }}></Drag> 
+                ))
+              }
+            </div> */}
+
+            <DropArea onCombineCards={combineCards}></DropArea>
+            <CardList cards={cards}></CardList>
+          </DndProvider>
+      </div>
+    </div>
   );
 }
 
-export default App;
+export default Cauldron;
 

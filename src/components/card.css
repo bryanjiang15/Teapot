@@ -38,7 +38,25 @@
     height: 100%;
 }
 
-.emoji{
-    
+.rarity-common{
+    box-shadow: inset 0 0 0 5px lightGreen;
 }
+
+.rarity-rare {
+    box-shadow: inset 0 0 0 5px rgb(91, 101, 242);
+}
+
+.rarity-epic {
+    box-shadow: inset 0 0 0 5px rgb(196, 8, 196);
+}
+
+.rarity-legendary {
+    box-shadow: inset 0 0 0 5px rgb(255, 189, 8);
+}
+
+.rarity-mythic {
+    box-shadow: inset 0 0 0 5px rgb(186, 4, 4);
+}
+
+
 

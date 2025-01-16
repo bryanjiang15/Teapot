@@ -19,7 +19,7 @@ const Card = ({card}) => {
         opacity: isDragging ? 0.5 : 1,
         cursor: 'move',
       }}
-      className='char-card'
+      className={`char-card rarity-${card.rarity.toLowerCase()}`}
     >
         <div className='health-power'>
           <p className='health'>{card.health}</p>
