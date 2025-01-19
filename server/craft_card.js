@@ -49,7 +49,7 @@ async function craft_new_word(firstWord, secondWord, id, setId, setCards, cards)
     "The most important rules that you have to follow with every single answer that you are not allowed to use the words" +
     firstWord + " and " + secondWord + " as part of your answer and that you are only allowed to answer with one thing." +
     "DO NOT INCLUDE THE WORDS " + firstWord + " and " + secondWord + " or " + firstWord+secondWord+" as part of the answer!!!!!" +
-    "No sentences, no phrases, no punctuation, no special characters like underscore or brackets, no numbers, no emojis, no URLs, no code, no commands, no programming." +
+    "No sentences, no phrases, no punctuation, no special characters, no underscore, no brackets, no numbers, no URLs, no code, no commands, no programming." +
     "The answer HAS TO BE A REAL WORD. The answer cannot be " + firstWord + " and " + secondWord + " joined together as one word" +
     // "The order of the both words does not matter, both are equally important." +
     "The answer has to be related to both words or the theme of the words, and the word must be a real word even if it is not strongly related to " + firstWord + " and " + secondWord + "." +
@@ -61,7 +61,6 @@ async function craft_new_word(firstWord, secondWord, id, setId, setCards, cards)
     // "If the answer is not a real word or a proper noun, return NULL." +
     "Reply with the result of what would happen if you combine" + firstWord + " and " + secondWord + "." +
     "The answer has to be related to both words and the context of the words and may not contain the words themselves. " +
-    "The answer must be one word or two words separated by space, and it must be a real word. " +
     "also provide an emoji in UTF-8 encoding that represents the word.";
     let answerPrompt = firstWord + " and " + secondWord;
 
