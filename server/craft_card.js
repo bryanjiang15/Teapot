@@ -1,22 +1,23 @@
 import LlamaAI from "llamaai";
-import {LLAMA_SECRET_KEY, OPENAI_API_KEY} from "../src/env.js";
 import {db} from "./database.js";
 import OpenAI from "openai";
-// import { fileURLToPath } from "url";
-// import path from "path";
-// import { getLlama, LlamaChatSession, LlamaContext, LlamaJsonSchemaGrammar, LlamaModel } from "node-llama-cpp";
+import { fileURLToPath } from "url";
+import path from "path";
+import { getLlama, LlamaChatSession, LlamaContext, LlamaJsonSchemaGrammar, LlamaModel } from "node-llama-cpp";
 //import Card from './components/card' 
 import { HfInference } from "@huggingface/inference";
 import dotenv from "dotenv";
 
-const apiToken = LLAMA_SECRET_KEY;
-const openaiToken = OPENAI_API_KEY;
 
 dotenv.config();
+
+const USINGLOCALMODEL = true;
 
 const HF_ACCESS_TOKEN = process.env.HF_ACCESS_TOKEN
 const inference = new HfInference(HF_ACCESS_TOKEN);
 const model = "mistralai/Mistral-7B-Instruct-v0.2"
+
+const {llama, llamaModel, context, session} = await setupLlama();
 
 async function craft_new_word_from_cache(firstWord, secondWord) {
     let cachedResult = await db.get('SELECT result, emoji FROM word_cache WHERE first_word = ? AND second_word = ?', [firstWord, secondWord]);
@@ -33,17 +34,18 @@ async function cacheNewWord(firstWord, secondWord, result, emoji) {
     await db.run('INSERT INTO word_cache (first_word, second_word, result, emoji) VALUES (?, ?, ?, ?)', [firstWord, secondWord, result, emoji]);
 }
 
-async function craft_new_word(firstWord, secondWord, id, setId, setCards, cards) {
+async function craft_new_word(firstWord, secondWord) {
     const cachedResult = await craft_new_word_from_cache(firstWord, secondWord);
     if (cachedResult) {
         return cachedResult;
     }
-    const openai = new OpenAI({
-        apiKey: openaiToken,
-        //baseURL: "https://api.llama-api.com"
-    }
-    );
-    const llamaAPI = new LlamaAI(apiToken);
+    // const openai = new OpenAI({
+    //     apiKey: openaiToken,
+    //     //baseURL: "https://api.llama-api.com"
+    // }
+    // );
+    // const llamaAPI = new LlamaAI(apiToken);
+
 
     let systemPrompt = "You are a helpful assistant that helps people to craft new things in a merging game by combining two words." + 
     "The most important rules that you have to follow with every single answer that you are not allowed to use the words" +
@@ -60,75 +62,82 @@ async function craft_new_word(firstWord, secondWord, id, setId, setCards, cards)
     //"If you cannot come up with a answer, that follows the rules, instead output a word that is more specific to either" + firstWord + "or " + secondWord + "." +
     // "If the answer is not a real word or a proper noun, return NULL." +
     "Reply with the result of what would happen if you combine" + firstWord + " and " + secondWord + "." +
-    "The answer has to be related to both words and the context of the words and may not contain the words themselves. " +
-    "also provide an emoji in UTF-8 encoding that represents the word.";
+    "The answer has to be related to both words and the context of the words and may not contain the words themselves. " ;
+    //"also provide an emoji in UTF-8 encoding that represents the word.";
+    const emojiSystemPrompt = 'Reply with one emoji representing the word. Use the UTF-8 encoding.';
     let answerPrompt = firstWord + " and " + secondWord;
-
-    // Build the Request
-    const apiRequestJson = {
-        model: model,
-        messages: [
-            {"role": "system", "content": systemPrompt},
-            {"role": "user", "content": answerPrompt},
-        ],
-        tools: [
-            {
-                type: "function",
-                function: {
-                    name: "get_combined_word",
-                    description: "Get the combined word of two words",
-                    parameters: {
-                        type: "object",
-                        properties: {
-                            answer: {
-                                type: "string",
-                                description: "One word or One phrase that is the result of combining the two words.",
-                            },
-                            emoji: {
-                                type: "string",
-                                description: "UTF-8 encoding of the emoji based on the word",
-                            },
-                            // explanation: {
-                            //     type: "string",
-                            //     description: "Explain how the answer is related to the two words",
-                            // },
-                            // "other": {
-                            //     "type": "string",
-                            //     "description": "Other answer that could be the answer",
-                            // }
-                        },
-                    },
-                    required: ["answer", "emoji"],
-                }
-            }
-        ],
-        tool_choice: "get_combined_word",
-        max_tokens: 200
-    }
 
     let combined_word = "";
     let emoji = "";
-    //error message format -> turn into json
-    //{\"function\":{\"_name\":\"get_combined_word\",\"answer\":\"hillrat\",\"emoji\":\"(?:\\xD7\\x96\\xD7\\x92\\xD7\\x9D)\"}}
-    const response = await inference.chatCompletion(apiRequestJson)
-        .catch(error => {
-            let answerIndexStart = error.message.indexOf("{");
-            let answerIndexEnd = error.message.lastIndexOf("}");
-            let answer = error.message.substring(answerIndexStart, answerIndexEnd+1);
-            //remove escape characters
-            answer = answer.replace(/\\/g, "");
-            console.log(answer);
-            response = JSON.parse(answer);
-            
-        });
-    if(response.choices[0].message.tool_calls==null){
-        combined_word = response.choices[0].message.content;
+
+    if(!USINGLOCALMODEL) {
+        // Build the Request
+        const apiRequestJson = {
+            model: model,
+            messages: [
+                {"role": "system", "content": systemPrompt},
+                {"role": "user", "content": answerPrompt},
+            ],
+            tools: [
+                {
+                    type: "function",
+                    function: {
+                        name: "get_combined_word",
+                        description: "Get the combined word of two words",
+                        parameters: {
+                            type: "object",
+                            properties: {
+                                answer: {
+                                    type: "string",
+                                    description: "One word or One phrase that is the result of combining the two words.",
+                                },
+                                emoji: {
+                                    type: "string",
+                                    description: "UTF-8 encoding of the emoji based on the word",
+                                },
+                                // explanation: {
+                                //     type: "string",
+                                //     description: "Explain how the answer is related to the two words",
+                                // },
+                                // "other": {
+                                //     "type": "string",
+                                //     "description": "Other answer that could be the answer",
+                                // }
+                            },
+                        },
+                        required: ["answer", "emoji"],
+                    }
+                }
+            ],
+            tool_choice: "get_combined_word",
+            max_tokens: 200
+        }
+
+        //error message format -> turn into json
+        //{\"function\":{\"_name\":\"get_combined_word\",\"answer\":\"hillrat\",\"emoji\":\"(?:\\xD7\\x96\\xD7\\x92\\xD7\\x9D)\"}}
+        const response = await inference.chatCompletion(apiRequestJson)
+            .catch(error => {
+                let answerIndexStart = error.message.indexOf("{");
+                let answerIndexEnd = error.message.lastIndexOf("}");
+                let answer = error.message.substring(answerIndexStart, answerIndexEnd+1);
+                //remove escape characters
+                answer = answer.replace(/\\/g, "");
+                console.log(answer);
+                response = JSON.parse(answer);
+                
+            });
+        if(response.choices[0].message.tool_calls==null){
+            combined_word = response.choices[0].message.content;
+        }else{
+            combined_word = response.choices[0].message.tool_calls[0].function.arguments.answer;
+            emoji = response.choices[0].message.tool_calls[0].function.arguments.emoji;
+        }
+        console.log(response.choices[0].message.tool_calls[0]);
     }else{
-        combined_word = response.choices[0].message.tool_calls[0].function.arguments.answer;
-        emoji = response.choices[0].message.tool_calls[0].function.arguments.emoji;
+        const result = await generateNewWord(firstWord, secondWord, systemPrompt, answerPrompt, emojiSystemPrompt);
+        combined_word = result.result;
+        emoji = result.emoji;
     }
-    console.log(response.choices[0].message.tool_calls[0]);
-    
     //LLAMA API REQUEST
     // let ai_response = null;
     // // Execute the Request
@@ -155,6 +164,48 @@ async function craft_new_word(firstWord, secondWord, id, setId, setCards, cards)
 
 }
 
+async function generateNewWord(firstWord, secondWord, systemPrompt, answerPrompt, emojiSystemPrompt) {
+
+    const grammar = await llama.createGrammarForJsonSchema({
+        "type": "object",
+        "properties": {
+            "answer": {
+                "type": "string"
+            },
+        }
+    });
+
+    const promp = '<s>[INST] ' +
+    systemPrompt +
+    answerPrompt + '[/INST]</s>\n';
+
+    const result = await session.prompt(promp, {
+        grammar,
+        maxTokens: context.contextSize
+    });
+
+
+    const emojiPrompt = '<s>[INST] ' +
+        emojiSystemPrompt +
+        JSON.parse(result).answer + '[/INST]</s>\n';
+
+    const emojiResult = await session.prompt(emojiPrompt, {
+        grammar,
+        maxTokens: context.contextSize
+    });
+
+    console.log(result);
+
+    if (JSON.parse(result).answer.toLowerCase().trim().split(' ').length > 3 ||
+        (JSON.parse(result).answer.toLowerCase().includes(firstWord.toLowerCase()) &&
+            JSON.parse(result).answer.toLowerCase().includes(secondWord.toLowerCase()) &&
+            JSON.parse(result).answer.length < (firstWord.length + secondWord.length + 2))
+    ) {
+        return {result: '', emoji: ''}
+    }
+    return {result: capitalizeFirstLetter(JSON.parse(result).answer), emoji: JSON.parse(emojiResult).answer}
+}
+
 async function craft_new_card_from_cache(word) {
     let cachedResult = await db.get('SELECT name, rarity, category, health FROM card_cache WHERE name = ?', [word]);
     return cachedResult;
@@ -170,7 +221,7 @@ async function craft_new_card(word) {
         return cachedResult;
     }
 
-    const llamaAPI = new LlamaAI(apiToken);
+    // const llamaAPI = new LlamaAI(apiToken);
     // let albumSystemPrompt = "You are a helpful assistant that helps people design new cards in a trading card game based on an input word." +
     // "Every card must include a name, emoji, health, rarity, and power." +
     // "The name of the card is the word inputed by the user." +
@@ -228,38 +279,44 @@ async function craft_new_card(word) {
         tool_choice: "create_card",
         max_tokens: 200
     }
-    
-    //setId(id + 1);
-    let card_response = await inference.chatCompletion(card_api_request_json)
-        .catch(error => {
-            let answerIndexStart = error.message.indexOf("{");
-            let answerIndexEnd = error.message.lastIndexOf("}");
-            let answer = error.message.substring(answerIndexStart, answerIndexEnd+1);
-            console.log(answer);
-            card_response = JSON.parse(answer);
-            
-        });
-    // await llamaAPI.run(card_api_request_json)
-    //     .then(response => {
-    //     // Process response
-    //     card_response = response.choices[0].message;
-    //     console.log(response.choices[0].message.tool_calls[0]);
-    //     })
-    //     .catch(error => {
-    //     // Handle errors
-    //     });
-    // if (card_response == null) {
-    //     console.log("Card response is null");
-    //     return null;
-    // }
-    console.log(card_response.choices[0].message.tool_calls[0])
 
-    
-    let combined_card = {
-        "name": albumAnswerPrompt,
-        "rarity": card_response.choices[0].message.tool_calls[0].function.arguments.rarity,
-        "category": card_response.choices[0].message.tool_calls[0].function.arguments.category,
-        "health": card_response.choices[0].message.tool_calls[0].function.arguments.health
+    let combined_card = null;
+
+    if(!USINGLOCALMODEL) {
+        //setId(id + 1);
+        let card_response = await inference.chatCompletion(card_api_request_json)
+            .catch(error => {
+                let answerIndexStart = error.message.indexOf("{");
+                let answerIndexEnd = error.message.lastIndexOf("}");
+                let answer = error.message.substring(answerIndexStart, answerIndexEnd+1);
+                console.log(answer);
+                card_response = JSON.parse(answer);
+                
+            });
+        // await llamaAPI.run(card_api_request_json)
+        //     .then(response => {
+        //     // Process response
+        //     card_response = response.choices[0].message;
+        //     console.log(response.choices[0].message.tool_calls[0]);
+        //     })
+        //     .catch(error => {
+        //     // Handle errors
+        //     });
+        // if (card_response == null) {
+        //     console.log("Card response is null");
+        //     return null;
+        // }
+        console.log(card_response.choices[0].message.tool_calls[0])
+
+        
+        combined_card = {
+            "name": albumAnswerPrompt,
+            "rarity": card_response.choices[0].message.tool_calls[0].function.arguments.rarity,
+            "category": card_response.choices[0].message.tool_calls[0].function.arguments.category,
+            "health": card_response.choices[0].message.tool_calls[0].function.arguments.health
+        };
+    }else{
+        combined_card = await generateNewCard(word, albumSystemPrompt, albumAnswerPrompt);
     }
 
     cacheNewCard(combined_card.name, combined_card.rarity, combined_card.power, combined_card.health);
@@ -287,6 +344,48 @@ async function craft_new_card(word) {
     // console.log(cards);
     
 }
+
+async function generateNewCard(word, systemPrompt, answerPrompt) {
+
+    const grammar = await llama.createGrammarForJsonSchema({
+        "type": "object",
+        "properties": {
+            "name": {
+                "type": "string"
+            },
+            "rarity": {
+                "type": "string"
+            },
+            "category": {
+                "type": "string"
+            },
+            "health": {
+                "type": "integer"
+            }
+        }
+    });
+
+    const promp = '<s>[INST] ' +
+    systemPrompt +
+    answerPrompt + '[/INST]</s>\n';
+
+    const result = await session.prompt(promp, {
+        grammar,
+        maxTokens: context.contextSize
+    });
+
+    console.log(result);
+
+    let result_json = JSON.parse(result);
+
+    return {
+        name: capitalizeFirstLetter(result_json.name),
+        rarity: capitalizeFirstLetter(result_json.rarity),
+        category: capitalizeFirstLetter(result_json.category),
+        health: result_json.health
+    }
+}
+
 function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
@@ -303,14 +402,7 @@ async function setupLlama() {
         contextSequence: context.getSequence(),
     });
 
-    const grammar = await llama.createGrammarForJsonSchema({
-        "type": "object",
-        "properties": {
-            "answer": {
-                "type": "string"
-            },
-        }
-    });
+    return {llama, model, context, session};
 }
 
 export { craft_new_word, capitalizeFirstLetter, craft_new_card };
