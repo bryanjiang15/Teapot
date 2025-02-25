@@ -4,7 +4,7 @@ import { useDrag } from 'react-dnd'
 
 
 const Card = ({card}) => {
-  const [{isDragging}, dragRef] = useDrag({
+  const [{isDragging}, drag] = useDrag({
     type: 'CARD',
     item: {card: card},
     collect: (monitor) => ({
@@ -14,23 +14,15 @@ const Card = ({card}) => {
 
   return (
     <div 
-      ref={dragRef}
-      style={{
-        opacity: isDragging ? 0.5 : 1,
-        cursor: 'move',
-      }}
-      className={`char-card rarity-${card.rarity.toLowerCase()}`}
+      ref={drag}
+      className={`card ${isDragging ? 'dragging' : ''}`}
     >
-        <div className='health-power'>
-          <p className='health'>{card.health}</p>
-          <p className='power'>{card.power}</p>
-        </div>
-        <div className='picture'>
-            <h1 className='emoji'>{card.emoticon}</h1>
-        </div>
-        <div className='name'>
-          <p>{card.name}</p>
-        </div>
+      <div className="card-emoticon">{card.emoticon}</div>
+      <div className="card-name">{card.name}</div>
+      <div className="card-stats">
+        <span className="power">{card.power}</span>
+        <span className="health">{card.health}</span>
+      </div>
     </div>
   )
 }

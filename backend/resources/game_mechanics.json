@@ -1,0 +1,38 @@
+[
+    {
+        "name": "Reach 15 Power at a Location",
+        "type": "Contribute",
+        "description": "A player must achieve a total power level of 15 at any one of the three locations.",
+        "reasoning": "This is the primary win condition of the game, and successfully reaching this power level immediately ends the game in the player's favor."
+    },
+    {
+        "name": "Sum Power Levels Across Locations",
+        "type": "Contribute",
+        "description": "If neither player reaches 15 power, the player with the highest total power level across all locations wins.",
+        "reasoning": "This mechanic incentivizes players to play strategically to maximize their power across all locations if the first win condition is not met."
+    },
+    {
+        "name": "Snapping",
+        "type": "Mixed",
+        "description": "Players can use the 'Snap' ability to impose unpredictable effects on the opponent or control the game state.",
+        "reasoning": "While snapping can enhance a player's strategic leverage, it might also backfire if not used wisely, thus mixed in its contribution to winning."
+    },
+    {
+        "name": "Use of Event Cards",
+        "type": "Mixed",
+        "description": "Event cards can disrupt the opponent\u2019s strategy or boost a player\u2019s own power temporarily.",
+        "reasoning": "Using event cards can significantly change power dynamics, helping a player gain an edge, but can also lead to unintended consequences depending on the situation."
+    },
+    {
+        "name": "Location Abilities",
+        "type": "Mixed",
+        "description": "Each location has unique abilities that can affect the game, allowing strategic placements of character cards.",
+        "reasoning": "Effectively utilizing location abilities can enhance a player's strategy, but poorly managing them may hinder achieving a power level of 15."
+    },
+    {
+        "name": "Steal and Destroy Mechanics",
+        "type": "Mixed",
+        "description": "Some cards allow players to steal or destroy characters in opponents' locations, altering power levels.",
+        "reasoning": "These mechanics can contribute to winning by reducing the power of an opponent while increasing one's own, but may also disrupt the player's strategy if not timed correctly."
+    }
+]

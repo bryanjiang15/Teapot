@@ -1,0 +1,1 @@
+from backend.views.craft_card import craft_card_route

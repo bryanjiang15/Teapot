@@ -1,0 +1,8 @@
+#!/bin/bash
+# cardDb
+#script to set up sqllite database
+
+set -Eeuo pipefail
+set -x
+
+uvicorn backend:app --host 0.0.0.0 --port 8000 --reload

@@ -1,0 +1,45 @@
+**Cards, Universe, and Everything (CUE)** is a multiplayer card game that combines elements of strategy, humor, and creativity. Here's an overview of its game mechanics, objectives, and win conditions.
+
+### Game Objective
+The primary objective of CUE is to be the first player to achieve a predetermined number of points, typically by creating humorous or clever cards that fit specific prompts and match the aesthetic and tone defined by the theme of the game.
+
+### Win Condition
+Players win by accumulating a certain number of points, often between 5 to 10, depending on the agreed-upon rules for that session. Points are usually awarded based on the creativity, humor, and alignment of the players’ responses to the given prompt, as judged by a rotating judge or by peer voting.
+
+### Game Mechanics
+
+1. **Card Types**:
+   - **Prompt Cards**: These cards provide the context or scenario that players must respond to (e.g., “Describe your ideal vacation”).
+   - **Response Cards**: Players use these cards to respond to the prompt with a creative or funny answer. Each player has a hand of these cards.
+
+2. **Game Setup**:
+   - Each player draws a specific number of response cards from the deck at the start of the round.
+   - A prompt card is drawn to initiate the round.
+
+3. **Playing a Round**:
+   - The player designated as the “Judge” for that round reads the prompt aloud.
+   - All other players then select one or more response cards from their hands to submit to the judge, trying to create the most entertaining or fitting answer.
+
+4. **Judging**:
+   - The judge reviews all submitted response cards and selects the one they find the most fitting or humorous.
+   - The player whose response is chosen receives points (usually one point per round).
+
+5. **Rotating the Judge**:
+   - After each round, the role of the judge rotates so that every player has an opportunity to judge the responses, maintaining engagement and fairness.
+
+6. **Card Management**:
+   - Players may draw new response cards to keep their hand populated throughout the game, ensuring they have options to respond in future rounds.
+
+7. **Game Duration**:
+   - The game can be played for a set number of rounds, or until a player reaches the point target. Players may agree to extend or shorten the game duration as desired.   
+
+8. **Creating Synergy**:
+   - Players are encouraged to play cards that not only answer the prompt but also exhibit clever wordplay, cultural references, or inside jokes that resonate with the group, thereby enhancing their chances of being selected by the judge.
+
+### Strategic Elements
+- **Card Selection**: Choosing the right card in response to a prompt is pivotal. Players must read the room and consider the judge's sense of humor.
+- **Adaptation**: Players may need to adapt their responses based on the dynamics of the group, trying to understand what kinds of humor resonate more effectively.        
+- **Judging Dynamics**: Each judge may have different preferences, which means players must adjust their strategies accordingly to maximize points.
+
+### Summary
+CUE relies heavily on player creativity, humor, and social interaction. The interplay between prompt selection, response crafting, and the subjective nature of judging contributes to the game's engaging mechanics, ensuring that no two rounds are the same and adding a layer of unpredictability to the gameplay.

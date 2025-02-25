@@ -4,15 +4,6 @@ import { useCallback, useState } from 'react';
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import DropArea from './components/Drop.js';
-
-import { DndProvider } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
-import axios from 'axios';
-import Card from './components/Card.js';
-import CardList from './components/CardList.js';
-import { debounce } from 'lodash';
-
 import Cauldron from './pages/Cauldron.js'
 import Game from './pages/Game.js'
 

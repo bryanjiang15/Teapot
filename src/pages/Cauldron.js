@@ -82,11 +82,29 @@ function Cauldron() {
 
   const combineCards = debounce(async (dropped) => {
     //let card = await get_combined_word(item.card.name, droppedItem[0].card.name, id, setId, setCards, temp);
-    const response = await axios.post('http://localhost:3001/', {
-      first: dropped[0].card.name,
-      second: dropped[1].card.name
+    // const response = await axios.post('http://localhost:3001/', {
+    //   first: dropped[0].card.name,
+    //   second: dropped[1].card.name
+    // })
+    let result = null;
+    await fetch('http://localhost:8000/api/combine-word', {
+      method: 'POST',
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        first: dropped[0].card.name,
+        second: dropped[1].card.name
+      }),
     })
-    let word = response.data;
+    .then((response) => {
+      if (!response.ok) throw new Error(response.statusText);
+      return response.json(); 
+    })
+    .then((data) => {
+      console.log(data);
+      result = data;
+    })
+
+    let word = result.data;
     console.log(word);
 
     const card_response = await axios.post('http://localhost:3001/new-card', {

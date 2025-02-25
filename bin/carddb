@@ -1,0 +1,51 @@
+#!/bin/bash
+# cardDb
+#script to set up sqllite database
+
+set -Eeuo pipefail
+
+usage() {
+    echo "Usage: $0 (create|destroy|reset)"
+}
+
+case $1 in
+ "create")
+   mkdir -p var/uploads
+   sqlite3 var/cards.sqlite3 < sql/schema.sql
+   sqlite3 var/cards.sqlite3 < sql/data.sql
+   cp sql/uploads/* var/uploads/
+   ;;
+
+
+ "destroy")
+   rm -rf var/cards.sqlite3 var/uploads
+   ;;
+
+
+ "reset")
+   rm -rf var/cards.sqlite3 var/uploads
+   mkdir -p var/uploads
+   sqlite3 var/cards.sqlite3 < sql/schema.sql
+   sqlite3 var/cards.sqlite3 < sql/data.sql
+   cp sql/uploads/* var/uploads/
+   ;;
+
+
+#  "dump")
+#    sqlite3 -batch -line var/cards.sqlite3 'SELECT * FROM users'
+#    sqlite3 -batch -line var/cards.sqlite3 'SELECT * FROM posts'
+#    sqlite3 -batch -line var/cards.sqlite3 'SELECT * FROM comments'
+#    sqlite3 -batch -line var/cards.sqlite3 'SELECT * FROM likes'
+#    sqlite3 -batch -line var/cards.sqlite3 'SELECT * FROM following'
+#    ;;
+ *)
+   usage
+   exit 1
+   ;;
+esac
+
+
+
+
+
+

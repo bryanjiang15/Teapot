@@ -1,0 +1,35 @@
+{
+    "model": "mistralai/Mistral-7B-Instruct-v0.2",
+    "messages": [
+
+        {"role": "system", "content": "You are a imaginative card game designer that helps people design new unique cards in a trading card game by combining two card with name and their description. Try to create a card in the same theme and genre as the two input cards. For example, if the two cards are futuristic sci fi themed, the new card should be futuristic sci fi themed as well. Be creative and make the new card different but related to the two input cards. Provide a catchy name and a vivid 10-20 word description that captures the card's unique essence."},
+        {"role": "user", "content": "Card1: {name: 'Bus Stop', description: 'A bus stop that is a popular meeting place for the locals. It is a place where people can wait for a bus to arrive.'} Card2: {name: 'Fire Elemental', description: 'A fiery creature that burns with a passion for destruction. A dragon that breathes fire and is a master of flame.'}"}
+    ],
+    "tools": [
+        {
+            "type": "function",
+            "function": {
+                "name": "create_card",
+                "description": "Get the name and description of the new card based on the two input cards",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "The name of the new card"
+                        },
+                        "description": {
+                            "type": "string",
+                            "description": "The description of the new card"
+                        }
+                    },
+                    "required": ["name", "description"],
+                    "additionalProperties": false
+                },
+                "strict": true
+            }
+        }
+    ],
+    "tool_choice": "create_card",
+    "max_tokens": 300
+}
