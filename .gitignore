@@ -31,3 +31,4 @@ env/
 /server/models
 /backend/merge_word_clm-model
 /backend/my_awesome_eli5_clm-model
+/ssl

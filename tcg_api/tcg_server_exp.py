@@ -22,7 +22,7 @@ async def trigger_schema_tool(trigger_type: TriggerType, trigger_target_data: Ta
     """
     return AbilityTrigger(
         trigger_type=trigger_type,
-        trigger_target_data=trigger_target_data
+        trigger_target_data=trigger_target_data 
     )
 
 @function_tool
@@ -199,22 +199,22 @@ async def check_amount_data(agent_result_type: str, agent_result: dict) -> list[
     amount_queries = []
     
     # Check trigger target data
-    if agent_result_type == "trigger" and "trigger_target_data" in agent_result:
-        trigger_data = agent_result["trigger_target_data"]
-        if (trigger_data.get("target_requirements", {}).get("requirement_amount", {}).get("amount_type") 
+    if agent_result_type == "trigger" and "triggerSource" in agent_result:
+        trigger_data = agent_result["triggerSource"]
+        if (trigger_data.get("targetRequirements", {}).get("requirementAmount", {}).get("amountType") 
             in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]):
-            amount_queries.append(trigger_data["target_requirements"]["requirement_amount"]["multiplier_condition"])
+            amount_queries.append(trigger_data["targetRequirements"]["requirementAmount"]["multiplierCondition"])
     
     # Check effect amount
     if agent_result_type == "effect":
-        if agent_result["amount"].get("amount_type") in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]:
-            amount_queries.append(agent_result["amount"]["multiplier_condition"])
+        if agent_result["amount"].get("amountType") in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]:
+            amount_queries.append(agent_result["amount"]["multiplierCondition"])
     
     # Check target requirements
     if agent_result_type == "target":
-        if (agent_result["target_requirements"].get("requirement_amount", {}).get("amount_type") 
+        if (agent_result["targetRequirements"].get("requirementAmount", {}).get("amountType") 
             in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]):
-            amount_queries.append(agent_result["target_requirements"]["requirement_amount"]["multiplier_condition"])
+            amount_queries.append(agent_result["targetRequirements"]["requirementAmount"]["multiplierCondition"])
     
     return amount_queries
 
@@ -271,29 +271,28 @@ async def update_processed_amounts(output_type: str, output: dict, processed_res
         output (dict): The output to update
         processed_results (dict[str, dict]): Dictionary of processed results
     """
-    if output_type == "trigger" and "trigger_target_data" in output:
-        trigger_data = output["trigger_target_data"]
-        if (trigger_data.get("target_requirements", {}).get("requirement_amount", {}).get("amount_type") 
+    if output_type == "trigger" and "triggerSource" in output:
+        trigger_data = output["triggerSource"][0]
+        if (trigger_data.get("targetRequirements", {}).get("requirementAmount", {}).get("amountType") 
             in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]):
-            query = trigger_data["target_requirements"]["requirement_amount"]["multiplier_condition"]
+            query = trigger_data["targetRequirements"]["requirementAmount"]["multiplierCondition"]
             if query in processed_results:
-                trigger_data["target_requirements"]["requirement_amount"]["value"] = processed_results[query]
+                trigger_data["targetRequirements"]["requirementAmount"]["value"] = processed_results[query]
     
     elif output_type == "effect" and "amount" in output:
-        if output["amount"].get("amount_type") in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]:
-            query = output["amount"]["multiplier_condition"]
+        if output["amount"].get("amountType") in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]:
+            query = output["amount"]["multiplierCondition"]
             if query in processed_results:
                 output["amount"]["value"] = processed_results[query]
     
-    elif output_type == "target" and "target_requirements" in output:
-        if (output["target_requirements"].get("requirement_amount", {}).get("amount_type") 
+    elif output_type == "target" and "targetRequirements" in output:
+        if (output["targetRequirements"].get("requirementAmount", {}).get("amountType") 
             in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]):
-            query = output["target_requirements"]["requirement_amount"]["multiplier_condition"]
+            query = output["targetRequirements"]["requirementAmount"]["multiplierCondition"]
             if query in processed_results:
-                output["target_requirements"]["requirement_amount"]["value"] = processed_results[query]
+                output["targetRequirements"]["requirementAmount"]["value"] = processed_results[query]
 
-async def main():
-    ability_description = "OnReveal: Create a random card that costs 3 in hand."
+async def Generate_Ability(ability_description: str):
 
     # with trace("Ability Enhancement"):
     #     enhanced_ability_description = await Runner.run(prompt_enhance_agent, ability_description)
@@ -307,6 +306,9 @@ async def main():
             Runner.run(target_agent, ability_description),
         )
 
+        print("Trigger result type:", Trigger_res.final_output)
+        print("Amount result type:", Effect_res.final_output["amount"])
+        print("Target result type:", Target_res.final_output)
 
         outputs = {
             "trigger": Trigger_res.final_output,
@@ -329,7 +331,13 @@ async def main():
         # Print final outputs
         for output in outputs.values():
             print(output)
-        result = outputs
+        result = AbilityResponse(
+            triggerDefinition=outputs["trigger"],
+            targetDefinition=[outputs["target"]],
+            effect=outputs["effect"]["effectType"],
+            amount=outputs["effect"]["amount"],
+        )
+    return result
     
     # with trace("Result Examination"):
     #     result_examination_res = await Runner.run(result_examination_agent, f"ability description: {ability_description}\nability json: {result}")
@@ -369,4 +377,4 @@ async def main():
 #     }.
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(Generate_Ability("On reveal: give the top card of your deck +2 power."))

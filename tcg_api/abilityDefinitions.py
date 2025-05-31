@@ -1,108 +1,97 @@
 import json
 from abilityData import TriggerType, TargetType, TargetRange, TargetSort, EffectType, RequirementType, RequirementComparator, AbilityAmountType
 from typing_extensions import TypedDict
-import asyncio
+from pydantic import BaseModel
 from agents import function_tool
 
 
 class AmountData(TypedDict):
     """Class to represent the amount for an ability
     Attributes:
-        amount_type (AbilityAmountType): What kind of value the amount is
+        amountType (AbilityAmountType): What kind of value the amount is
         value (int): The value of the amount. This is the constant integer value.
-        target_value_property (RequirementType): The property of the target that the amount is based on if the amount_type is TARGETVALUE.
-        multiplier_condition (str): The condition that the amount is multiplied by if the amount_type is TARGETVALUE or FOREACHTARGET.
-            If the amount_type is TargetValue, this is a str that describe the amount as: the <property> of <a specific target>.
-            If the amount_type is ForEachTarget, this is a str that describe the amount as: the number of <targets>.
+        targetValueProperty (RequirementType): The property of the target that the amount is based on if the amount_type is TARGETVALUE.
+        multiplierCondition (str): The condition that the amount is multiplied by if the amount_type is TARGETVALUE or FOREACHTARGET.
+            If the amountType is TargetValue, this is a str that describe the amount as: the <property> of <a specific target>.
+            If the amountType is ForEachTarget, this is a str that describe the amount as: the number of <targets>.
             Make sure to be descriptive about what property it is based on and what target the amount is based on. Do not include other information.
     """
-    amount_type: AbilityAmountType
+    amountType: AbilityAmountType
     value: int
-    target_value_property: RequirementType
-    multiplier_condition: str
-    # constant_value: int
-    # target_property: RequirementType
-    # target: "TargetData"
-    # def to_dict(self) -> dict:
-    #     """Convert the AmountData to a dictionary."""
-    #     return {
-    #         "amount_type": self.amount_type.value,
-    #         "constant_value": self.constant_value,
-    #         "target_property": self.target_property.value,
-    #         "target": self.target
-    #     }
+    targetValueProperty: RequirementType
+    multiplierCondition: str
 
 class RequirementData(TypedDict):
     """Class to represent the requirement data for a trigger.
     Attributes:
-        requirement_type (str): The type of requirement.
-        requirement_comparator (str): The comparator for the requirement.
-        requirement_amount (int): The amount to compare to.
+        requirementType (str): The type of requirement.
+        requirementComparator (str): The comparator for the requirement.
+        requirementAmount (int): The amount to compare to.
     """
-    requirement_type: RequirementType
-    requirement_comparator: RequirementComparator
-    requirement_amount: AmountData
+    requirementType: RequirementType
+    requirementComparator: RequirementComparator
+    requirementAmount: AmountData
 
     def to_dict(self) -> dict:
         """Convert the RequirementData to a dictionary."""
         return {
-            "requirement_type": self.requirement_type.value,
-            "requirement_comparator": self.requirement_comparator.value,
-            "requirement_amount": self.requirement_amount
+            "requirementType": self.requirementType.value,
+            "requirementComparator": self.requirementComparator.value,
+            "requirementAmount": self.requirementAmount
         }
 
 class TargetData(TypedDict):
     """Class to represent the target data for a trigger.
     Attributes:
-        target_type (TargetType): The type of target that can trigger the ability.
-        target_range (TargetRange): The range of the target.
-        target_sort (str): The sorting criteria for the target.
-        target_requirements (str): The requirements for the target, None if there is no requirement.
+        targetType (TargetType): The type of target that can trigger the ability.
+        targetRange (TargetRange): The range of the target.
+        targetSort (str): The sorting criteria for the target.
+        targetRequirements (str): The requirements for the target, None if there is no requirement.
     """
 
-    target_type: TargetType
-    target_range: TargetRange
-    target_sort: TargetSort
-    target_requirements: RequirementData
+    targetType: TargetType
+    targetRange: TargetRange
+    targetSort: TargetSort
+    targetRequirements: RequirementData
 
     def to_dict(self) -> dict:
         """Convert the TargetData to a dictionary."""
         return {
-            "target_type": self.target_type.value,
-            "target_range": self.target_range.value,
-            "target_sort": self.target_sort.value,
-            "target_requirements": self.target_requirements
+            "targetType": self.targetType.value,
+            "targetRange": self.targetRange.value,
+            "targetSort": self.targetSort.value,
+            "targetRequirements": self.targetRequirements
         }
 
 class AbilityTrigger(TypedDict):
     """Class to represent the trigger data for an ability.
     Attributes:
-        trigger_type (str): The type of trigger.
-        trigger_targets (TargetData): Data specifying what target can cause the trigger to activate.
+        triggerType (TriggerType): The type of trigger.
+        triggerSource (TargetData): Data specifying what target can cause the trigger to activate.
     """
-    trigger_type: TriggerType
-    trigger_target_data: TargetData
+    triggerType: TriggerType
+    triggerSource: list[TargetData]
 
     def to_dict(self) -> dict:
         """Convert the AbilityTrigger to a dictionary."""
         return {
-            "trigger_type": self.trigger_type.value,
-            "trigger_targets": self.trigger_target_data
+            "triggerType": self.triggerType.value,
+            "triggerSource": self.triggerSource
         }
 
 class AbilityEffect(TypedDict):
     """Class to represent the effect data for an ability.
     Attributes:
-        effect_type (str): The type of effect.
+        effectType (str): The type of effect.
         amount (AmountData): The amount of the effect.
     """
-    effect_type: EffectType
+    effectType: EffectType
     amount: AmountData
 
     def to_dict(self) -> dict:
         """Convert the AbilityEffect to a dictionary."""
         return {
-            "effect_type": self.effect_type.value,
+            "effectType": self.effectType.value,
             "amount": self.amount
         }
 
@@ -123,34 +112,35 @@ class AbilityRequirement(TypedDict):
         }
 
 @function_tool
-async def create_random_card_effect_schema(number_of_cards: int, card_generation_condition: RequirementData) -> AmountData:
+async def create_random_card_effect_schema(numberOfCards: int, cardGenerationCondition: RequirementData) -> AmountData:
     """Create the amountData schema for a random card generation effect.
     Args:
-        number_of_cards (int): The number of cards to generate.
-        card_generation_condition (RequirementData): The condition that the cards must meet to be a valid choice.
+        numberOfCards (int): The number of cards to generate.
+        cardGenerationCondition (RequirementData): The condition that the cards must meet to be a valid choice.
     
     Returns:
         AmountData: The effect schema for the random card generation.
     """
     return AmountData(
         amount_type=AbilityAmountType.RANDOM_CARD,
-        value=number_of_cards,
+        value=numberOfCards,
         target_value_property=RequirementType.NONE,
-        multiplier_condition=str(card_generation_condition),
+        multiplier_condition=str(cardGenerationCondition),
     )
+
 @function_tool
-async def get_valid_trigger_target_types(trigger_type: TriggerType) -> list[TargetType]:
+async def get_valid_trigger_target_types(triggerType: TriggerType) -> list[TargetType]:
     """Get the valid target types for a given trigger type.
 
     Args:
-        trigger_type (TriggerType): The type of trigger to check valid targets for.
+        triggerType (TriggerType): The type of trigger to check valid targets for.
     
     Returns:
         list[TargetType]: List of valid target types for the given trigger type.
     """
     # Define valid target types for each trigger type
     # Onreveal, ongoing, game start, end turn, end game, have no target
-    trigger_target_mapping = {
+    triggerTargetMapping = {
         TriggerType.ON_REVEAL: [
             TargetType.SELF
         ],
@@ -254,20 +244,20 @@ async def get_valid_trigger_target_types(trigger_type: TriggerType) -> list[Targ
         ]
     }
     
-    return trigger_target_mapping.get(trigger_type, [TargetType.SELF])
+    return triggerTargetMapping.get(triggerType, [TargetType.SELF])
 
 @function_tool
-async def get_valid_effect_target_types(effect_type: EffectType) -> list[TargetType]:
+async def get_valid_effect_target_types(effectType: EffectType) -> list[TargetType]:
     """Get the valid target types for a given effect type.
 
     Args:
-        effect_type (EffectType): The type of effect to check valid targets for.
+        effectType (EffectType): The type of effect to check valid targets for.
     
     Returns:
         list[TargetType]: List of valid target types for the given effect type.
     """
     # Define valid target types for each effect type
-    effect_target_mapping = {
+    effectTargetMapping = {
         EffectType.GAIN_POWER: [
             TargetType.SELF,
             TargetType.PLAYER_DIRECT_LOCATION_CARDS,
@@ -529,17 +519,26 @@ async def get_valid_effect_target_types(effect_type: EffectType) -> list[TargetT
         ]
     }
     
-    return effect_target_mapping.get(effect_type, [TargetType.SELF])
+    return effectTargetMapping.get(effectType, [TargetType.SELF])
     
 
 @function_tool
-async def get_card_id(card_name: str) -> int:
+async def get_card_id(cardName: str) -> int:
     """Get the card id for a given card name.
 
     Args:
-        card_name (str): The name of the card to check.
+        cardName (str): The name of the card to check.
     
     Returns:
         int: The card id for the given card name. -1 if the card does not exist.
     """
     return 2
+
+class AbilityRequest(BaseModel):
+    description: str
+
+class AbilityResponse(BaseModel):
+    triggerDefinition: AbilityTrigger
+    effect: EffectType
+    amount: AmountData
+    targetDefinition: list[TargetData]
