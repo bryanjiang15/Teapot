@@ -1,0 +1,174 @@
+# Multi-Agent LLM Architecture for Card Ability Parsing
+
+## Overview
+
+The `Generate_Ability` function implements a sophisticated multi-agent LLM system that translates natural language card ability descriptions into structured JSON representations. This architecture leverages specialized agents working in parallel and recursively to break down complex card abilities into their constituent components.
+
+## Architecture Components
+
+### 1. Core Agents
+
+#### Trigger Agent
+- **Purpose**: Identifies the event that activates the ability and what targets can trigger it
+- **Input**: Card ability description (string)
+- **Output**: `AbilityTrigger` object with trigger type and trigger target data
+- **Tools**: 
+  - `trigger_schema_tool`: Validates and constructs trigger objects
+  - `get_valid_trigger_target_types`: Determines valid trigger targets for trigger types
+- **Key Logic**: Distinguishes between trigger type (event) and trigger target (what can cause the trigger)
+
+#### Effect Agent
+- **Purpose**: Identifies the action the ability performs and its magnitude
+- **Input**: Card ability description (string)
+- **Output**: `AbilityEffect` object with effect type and amount data
+- **Tools**: `effect_schema_tool`
+- **Handoffs**: Can handoff to `create_card_effect_agent` for card creation effects
+- **Specialization**: Handles card generation effects through specialized sub-agent
+
+#### Target Agent
+- **Purpose**: Identifies the target that the ability affects (not the trigger target)
+- **Input**: Card ability description (string)
+- **Output**: `TargetData` object specifying the effect target
+- **Tools**:
+  - `target_schema_tool`: Validates and constructs target objects
+  - `get_valid_effect_target_types`: Determines valid target types for effect types
+- **Key Logic**: Target is determined by effect type, not trigger type
+
+### 2. Specialized Agents
+
+#### Create Card Effect Agent
+- **Purpose**: Handles effects that create or generate cards
+- **Activation**: Called via handoff from effect_agent when card creation is detected
+- **Tools**:
+  - `get_card_id`: Retrieves specific card IDs
+  - `create_random_card_effect_schema`: Handles random card generation
+- **Output**: `AbilityEffect` with card-specific amount data
+
+#### Requirement Agent
+- **Purpose**: Identifies conditions that must be met for ability activation
+- **Input**: Card ability description (string)
+- **Output**: `AbilityRequirement` object or empty object if no requirements
+- **Tools**: `requirement_schema_tool`
+- **Key Logic**: Requirements are separate from triggers - they are conditions checked when triggered
+
+### 3. Utility Agents (Currently Commented Out)
+
+#### Triage Agent
+- **Purpose**: Breaks complex abilities into simpler sub-abilities
+- **Logic**: Each ability should have one effect
+- **Output**: List of simplified ability descriptions
+
+#### Prompt Enhance Agent
+- **Purpose**: Improves ability descriptions for clarity and specificity
+- **Output**: Enhanced description (50 words or less)
+
+#### Result Examination Agent
+- **Purpose**: Validates that JSON output matches original ability description
+- **Input**: Original description + generated JSON
+- **Output**: Detailed reasoning about trigger, target, and effect accuracy
+
+## Execution Flow
+
+### Phase 1: Parallel Agent Execution
+```python
+Trigger_res, Effect_res, Target_res = await asyncio.gather(
+    Runner.run(trigger_agent, ability_description),
+    Runner.run(effect_agent, ability_description),
+    Runner.run(target_agent, ability_description),
+)
+```
+
+The three core agents run simultaneously, each analyzing the same ability description from their specialized perspective. This parallel execution improves performance and allows each agent to focus on its specific domain.
+
+### Phase 2: Amount Data Processing
+```python
+# Collect initial amount queries
+initial_queries = []
+for output_type, output in outputs.items():
+    initial_queries.extend(await check_amount_data(output_type, output))
+
+# Process amount queries recursively
+processed_results = await process_amount_queries(initial_queries, target_agent)
+```
+
+The system identifies amount data that requires further processing:
+- **TARGET_VALUE**: Amount depends on a target's property value
+- **FOR_EACH_TARGET**: Amount is calculated per target
+
+### Phase 3: Recursive Amount Resolution
+The `process_amount_queries` function implements a recursive system:
+- **Depth Limit**: Maximum recursion depth of 2 to prevent infinite loops
+- **Nested Processing**: Amount queries can contain their own amount data
+- **Result Mapping**: Maps processed results back to their original queries
+
+### Phase 4: Result Assembly
+```python
+result = AbilityResponse(
+    triggerDefinition=outputs["trigger"],
+    targetDefinition=[outputs["target"]],
+    effect=outputs["effect"]["effectType"],
+    amount=outputs["effect"]["amount"],
+)
+```
+
+The final structured JSON is assembled from all processed components.
+
+## Key Design Principles
+
+### 1. Separation of Concerns
+Each agent has a single, well-defined responsibility:
+- Trigger agent handles activation events
+- Effect agent handles actions and magnitudes
+- Target agent handles effect recipients
+- Requirement agent handles conditions
+
+### 2. Parallel Processing
+Core agents run simultaneously to improve performance and avoid sequential dependencies.
+
+### 3. Recursive Processing
+Amount data can contain nested references that require recursive resolution.
+
+### 4. Tool-Based Validation
+Each agent uses specialized tools to validate and construct their outputs, ensuring data integrity.
+
+### 5. Handoff Mechanism
+Specialized sub-agents handle complex cases (like card creation) through handoff mechanisms.
+
+## Data Flow
+
+```
+Input: "On reveal: give the top card of your deck +2 power."
+    ↓
+Parallel Agent Execution:
+├── Trigger Agent → AbilityTrigger(ON_REVEAL, SELF)
+├── Effect Agent → AbilityEffect(GAIN_POWER, +2)
+└── Target Agent → TargetData(DECK, FIRST)
+    ↓
+Amount Processing (if needed)
+    ↓
+Result Assembly → AbilityResponse
+```
+
+## Error Handling and Validation
+
+1. **Tool Validation**: Each agent uses tools that validate data structures
+2. **Recursion Limits**: Prevents infinite loops in amount processing
+3. **Exception Handling**: API layer catches and reports errors
+4. **Result Examination**: Optional validation agent can verify accuracy
+
+## Extensibility
+
+The architecture supports easy extension:
+- New agent types can be added for specialized parsing
+- Additional tools can be integrated into existing agents
+- Handoff mechanisms allow for complex workflow branching
+- Utility agents can be enabled/disabled as needed
+
+## Performance Considerations
+
+- **Parallel Execution**: Core agents run simultaneously
+- **Recursion Limits**: Prevents excessive processing depth
+- **Tool Caching**: Tools can cache results for repeated queries
+- **Async Processing**: Full async/await support for scalability
+
+This multi-agent architecture provides a robust, scalable solution for parsing complex card ability descriptions into structured data while maintaining accuracy and performance.

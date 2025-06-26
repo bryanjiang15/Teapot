@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import asyncio
-from tcg_server_exp import Generate_Ability, trigger_agent, effect_agent, target_agent, Runner, check_amount_data, process_amount_queries, update_processed_amounts
+from tcg_server_exp import Generate_Ability
 from abilityDefinitions import *
 app = FastAPI(title="TCG Ability Parser API")
 
@@ -37,7 +37,7 @@ async def parse_ability(request: AbilityRequest):
     #     amount=AmountData(amountType=AbilityAmountType.CONSTANT, value=2, targetValueProperty=RequirementType.NONE, multiplierCondition="")
     # )
     try:
-       return await Generate_Ability(request.description)
+       return await Generate_Ability(request.abilityDescription, request.cardDescription)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

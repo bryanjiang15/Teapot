@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import json
 from abilityData import TriggerType, TargetType, TargetRange, TargetSort, EffectType, RequirementType, RequirementComparator, AbilityAmountType
 from typing_extensions import TypedDict
@@ -5,7 +6,8 @@ from pydantic import BaseModel
 from agents import function_tool
 
 
-class AmountData(TypedDict):
+@dataclass
+class AmountData:
     """Class to represent the amount for an ability
     Attributes:
         amountType (AbilityAmountType): What kind of value the amount is
@@ -21,7 +23,20 @@ class AmountData(TypedDict):
     targetValueProperty: RequirementType
     multiplierCondition: str
 
-class RequirementData(TypedDict):
+    def get_processable_queries(self) -> list[str]:
+        """return processable amount data multiplier condition."""
+        if self.amountType in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]:
+            return [self.multiplierCondition]
+        return []
+    
+    def update_data(self, processed_results: dict[str, dict]) -> None:
+        """Update the amount data with the given processed results."""
+        if self.amountType in [AbilityAmountType.TARGET_VALUE, AbilityAmountType.FOR_EACH_TARGET]:
+            if self.multiplierCondition in processed_results:
+                self.value = processed_results[self.multiplierCondition]
+
+@dataclass
+class RequirementData:
     """Class to represent the requirement data for a trigger.
     Attributes:
         requirementType (str): The type of requirement.
@@ -39,8 +54,17 @@ class RequirementData(TypedDict):
             "requirementComparator": self.requirementComparator.value,
             "requirementAmount": self.requirementAmount
         }
+    
+    def get_processable_queries(self) -> list[str]:
+        """return processable amount data multiplier condition."""
+        return self.requirementAmount.get_processable_queries()
+    
+    def update_data(self, processed_results: dict[str, dict]) -> None:
+        """Update the requirement data with the given processed results."""
+        self.requirementAmount.update_data(processed_results)
 
-class TargetData(TypedDict):
+@dataclass
+class TargetData:
     """Class to represent the target data for a trigger.
     Attributes:
         targetType (TargetType): The type of target that can trigger the ability.
@@ -52,7 +76,7 @@ class TargetData(TypedDict):
     targetType: TargetType
     targetRange: TargetRange
     targetSort: TargetSort
-    targetRequirements: RequirementData
+    targetRequirements: list[RequirementData]
 
     def to_dict(self) -> dict:
         """Convert the TargetData to a dictionary."""
@@ -60,10 +84,23 @@ class TargetData(TypedDict):
             "targetType": self.targetType.value,
             "targetRange": self.targetRange.value,
             "targetSort": self.targetSort.value,
-            "targetRequirements": self.targetRequirements
+            "targetRequirements": [requirement.to_dict() for requirement in self.targetRequirements]
         }
+    
+    def get_processable_queries(self) -> list[str]:
+        """Validate the data and return processable amount data descriptions."""
+        processable_queries = []
+        for requirement in self.targetRequirements:
+            processable_queries.extend(requirement.get_processable_queries())
+        return processable_queries
+    
+    def update_data(self, processed_results: dict[str, dict]) -> None:
+        """Update the target data with the given processed results."""
+        for requirement in self.targetRequirements:
+            requirement.update_data(processed_results)
 
-class AbilityTrigger(TypedDict):
+@dataclass
+class AbilityTrigger:
     """Class to represent the trigger data for an ability.
     Attributes:
         triggerType (TriggerType): The type of trigger.
@@ -76,10 +113,23 @@ class AbilityTrigger(TypedDict):
         """Convert the AbilityTrigger to a dictionary."""
         return {
             "triggerType": self.triggerType.value,
-            "triggerSource": self.triggerSource
+            "triggerSource": [target.to_dict() for target in self.triggerSource]
         }
+    
+    def get_processable_queries(self) -> list[str]:
+        """Validate the data and return processable amount data descriptions."""
+        processable_queries = []
+        for target in self.triggerSource:
+            processable_queries.extend(target.get_processable_queries())
+        return processable_queries
+    
+    def update_data(self, processed_results: dict[str, dict]) -> None:
+        """Update the trigger data with the given processed results."""
+        for target in self.triggerSource:
+            target.update_data(processed_results)
 
-class AbilityEffect(TypedDict):
+@dataclass
+class AbilityEffect:
     """Class to represent the effect data for an ability.
     Attributes:
         effectType (str): The type of effect.
@@ -95,7 +145,16 @@ class AbilityEffect(TypedDict):
             "amount": self.amount
         }
 
-class AbilityRequirement(TypedDict):
+    def get_processable_queries(self) -> list[str]:
+        """Validate the data and return processable amount data descriptions."""
+        return self.amount.get_processable_queries()
+    
+    def update_data(self, processed_results: dict[str, dict]) -> None:
+        """Update the effect data with the given processed results."""
+        self.amount.update_data(processed_results)
+
+@dataclass
+class AbilityRequirement:
     """Class to represent the requirement data for an ability.
     Attributes:
         requirement (RequirementData): The requirement data for the ability.
@@ -110,6 +169,15 @@ class AbilityRequirement(TypedDict):
             "requirement": self.requirement.to_dict(),
             "target": self.target.to_dict()
         }
+    
+    def get_processable_queries(self) -> list[str]:
+        """Validate the data and return processable amount data descriptions."""
+        return self.requirement.get_processable_queries() + self.target.get_processable_queries()
+    
+    def update_data(self, processed_results: dict[str, dict]) -> None:
+        """Update the requirement data with the given processed results."""
+        self.requirement.update_data(processed_results)
+        self.target.update_data(processed_results)
 
 @function_tool
 async def create_random_card_effect_schema(numberOfCards: int, cardGenerationCondition: RequirementData) -> AmountData:
@@ -535,10 +603,15 @@ async def get_card_id(cardName: str) -> int:
     return 2
 
 class AbilityRequest(BaseModel):
-    description: str
+    abilityDescription: str
+    cardDescription: str
 
-class AbilityResponse(BaseModel):
+class AbilityDefinition(BaseModel):
     triggerDefinition: AbilityTrigger
     effect: EffectType
     amount: AmountData
     targetDefinition: list[TargetData]
+
+class AbilityResponse(BaseModel):
+    AbilityDefinition: AbilityDefinition
+    CardArtUrl: str
