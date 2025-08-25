@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import asyncio
+from AbilityResponse import AbilityResponse, AbilityRequest
 from tcg_server_exp import Generate_Ability
 from abilityDefinitions import *
 app = FastAPI(title="TCG Ability Parser API")

@@ -2,14 +2,21 @@ import asyncio
 from agents import Runner
 from abilityDefinitions import *
 from Agents.agent_registry import agent_registry
+from SnapComponents.SnapComponentDefinition import *
 
 class AmountProcessor:
     def __init__(self):
         pass
 
-    def check_amount_data(self, data: AbilityTrigger | AbilityEffect | TargetData | AbilityRequirement) -> list[str]:
+    def check_amount_data(self, data: SnapTriggerDefinition | SnapActionDefinition | SnapConditionDefinition | SnapComponentDefinition) -> list[str]:
         """Process the amount data for the given data type."""
-        return data.get_processable_queries()
+        if isinstance(data, SnapActionDefinition):
+            return data.effect.get_processable_queries() + data.targetDefinition.get_processable_queries()
+        elif isinstance(data, SnapConditionDefinition):
+            return data.condition.get_processable_queries()
+        elif isinstance(data, SnapTriggerDefinition):
+            return data.trigger.get_processable_queries()
+        return []
     
     async def process_amount_data(self, amount_queries: list[str], depth: int = 0) -> dict[str, dict]:
         """Process the amount data for the given amount queries."""
@@ -31,7 +38,7 @@ class AmountProcessor:
         query_to_parent = {}  # Map nested queries to their parent queries
 
         for query, result in zip(amount_queries, amount_res):
-            nested = await self.check_amount_data(result.final_output)
+            nested = self.check_amount_data(result.final_output)
             nested_queries.extend(nested)
             # Map each nested query to its parent query
             for nested_query in nested:
@@ -42,8 +49,19 @@ class AmountProcessor:
             nested_results = await self.process_amount_data(nested_queries, depth + 1)
             # Update parent results with nested results
             for query, result in processed_results.items():
-                await self.update_processed_amounts(result, nested_results)
+                self.update_processed_amounts(result, nested_results)
+        
+        return processed_results
     
-    async def update_processed_amounts(self, data: AbilityTrigger | AbilityEffect | TargetData | AbilityRequirement, processed_results: dict[str, dict]) -> None:
+    def update_processed_amounts(self, data: SnapTriggerDefinition | SnapActionDefinition | SnapConditionDefinition | SnapComponentDefinition, processed_results: dict[str, dict]) -> None:
         """Update the processed amount data for the given data."""
-        data.update_data(processed_results)
+        if isinstance(data, SnapActionDefinition):
+            data.effect.update_data(processed_results)
+        elif isinstance(data, SnapConditionDefinition):
+            data.condition.update_data(processed_results)
+        elif isinstance(data, SnapTriggerDefinition):
+            data.trigger.update_data(processed_results)
+        elif isinstance(data, SnapComponentDefinition):
+            pass
+        else:
+            raise ValueError(f"Unsupported data type: {type(data)}")

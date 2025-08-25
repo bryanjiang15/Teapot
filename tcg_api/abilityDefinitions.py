@@ -1,10 +1,6 @@
 from dataclasses import dataclass
-import json
 from abilityData import TriggerType, TargetType, TargetRange, TargetSort, EffectType, RequirementType, RequirementComparator, AbilityAmountType
-from typing_extensions import TypedDict
-from pydantic import BaseModel
 from agents import function_tool
-
 
 @dataclass
 class AmountData:
@@ -22,6 +18,21 @@ class AmountData:
     value: int
     targetValueProperty: RequirementType
     multiplierCondition: str
+
+    def __str__(self) -> str:
+        if self.amountType == AbilityAmountType.CONSTANT:
+            return f"{self.value}"
+        elif self.amountType == AbilityAmountType.TARGET_VALUE:
+            return f"the {self.targetValueProperty.value} of {self.multiplierCondition}"
+        elif self.amountType == AbilityAmountType.FOR_EACH_TARGET:
+            return f"the number of {self.multiplierCondition}"
+        elif self.amountType == AbilityAmountType.RANDOM_CARD:
+            return f"{self.value} random cards ({self.multiplierCondition})"
+        else:
+            return f"{self.amountType.value}: {self.value}"
+
+    def __repr__(self) -> str:
+        return f"AmountData({self.amountType.value}, {self.value}, {self.targetValueProperty.value}, '{self.multiplierCondition}')"
 
     def get_processable_queries(self) -> list[str]:
         """return processable amount data multiplier condition."""
@@ -46,6 +57,12 @@ class RequirementData:
     requirementType: RequirementType
     requirementComparator: RequirementComparator
     requirementAmount: AmountData
+
+    def __str__(self) -> str:
+        return f"{self.requirementType.value} {self.requirementComparator.value} {self.requirementAmount}"
+
+    def __repr__(self) -> str:
+        return f"RequirementData({self.requirementType.value}, {self.requirementComparator.value}, {repr(self.requirementAmount)})"
 
     def to_dict(self) -> dict:
         """Convert the RequirementData to a dictionary."""
@@ -77,6 +94,19 @@ class TargetData:
     targetRange: TargetRange
     targetSort: TargetSort
     targetRequirements: list[RequirementData]
+    excludeSelf: bool
+
+    def __str__(self) -> str:
+        target_str = self.targetType.value
+        if self.excludeSelf:
+            target_str += " (exclude self)"
+        if self.targetRequirements:
+            req_str = ", ".join(str(req) for req in self.targetRequirements)
+            target_str += f" where {req_str}"
+        return target_str
+
+    def __repr__(self) -> str:
+        return f"TargetData({self.targetType.value}, {self.targetRange.value}, {self.targetSort.value}, {len(self.targetRequirements)} requirements, excludeSelf={self.excludeSelf})"
 
     def to_dict(self) -> dict:
         """Convert the TargetData to a dictionary."""
@@ -84,7 +114,8 @@ class TargetData:
             "targetType": self.targetType.value,
             "targetRange": self.targetRange.value,
             "targetSort": self.targetSort.value,
-            "targetRequirements": [requirement.to_dict() for requirement in self.targetRequirements]
+            "targetRequirements": [requirement.to_dict() for requirement in self.targetRequirements],
+            "excludeSelf": self.excludeSelf
         }
     
     def get_processable_queries(self) -> list[str]:
@@ -108,6 +139,15 @@ class AbilityTrigger:
     """
     triggerType: TriggerType
     triggerSource: list[TargetData]
+
+    def __str__(self) -> str:
+        if not self.triggerSource:
+            return f"Trigger: {self.triggerType.value}"
+        sources_str = ", ".join(str(source) for source in self.triggerSource)
+        return f"Trigger: {self.triggerType.value} from {sources_str}"
+
+    def __repr__(self) -> str:
+        return f"AbilityTrigger({self.triggerType.value}, {len(self.triggerSource)} sources)"
 
     def to_dict(self) -> dict:
         """Convert the AbilityTrigger to a dictionary."""
@@ -138,6 +178,12 @@ class AbilityEffect:
     effectType: EffectType
     amount: AmountData
 
+    def __str__(self) -> str:
+        return f"Effect: {self.effectType.value} {self.amount}"
+
+    def __repr__(self) -> str:
+        return f"AbilityEffect({self.effectType.value}, {repr(self.amount)})"
+
     def to_dict(self) -> dict:
         """Convert the AbilityEffect to a dictionary."""
         return {
@@ -162,6 +208,12 @@ class AbilityRequirement:
     """
     requirement: RequirementData
     target: TargetData
+
+    def __str__(self) -> str:
+        return f"Requirement: {self.requirement} on {self.target}"
+
+    def __repr__(self) -> str:
+        return f"AbilityRequirement({repr(self.requirement)}, {repr(self.target)})"
 
     def to_dict(self) -> dict:
         """Convert the AbilityRequirement to a dictionary."""
@@ -601,17 +653,4 @@ async def get_card_id(cardName: str) -> int:
         int: The card id for the given card name. -1 if the card does not exist.
     """
     return 2
-
-class AbilityRequest(BaseModel):
-    abilityDescription: str
-    cardDescription: str
-
-class AbilityDefinition(BaseModel):
-    triggerDefinition: AbilityTrigger
-    effect: EffectType
-    amount: AmountData
-    targetDefinition: list[TargetData]
-
-class AbilityResponse(BaseModel):
-    AbilityDefinition: AbilityDefinition
-    CardArtUrl: str
+    

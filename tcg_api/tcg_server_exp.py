@@ -1,29 +1,14 @@
-from dataclasses import dataclass, asdict
 import asyncio
-from abilityDefinitions import AbilityTrigger, AbilityEffect, TargetData
-from agents import Agent, Runner, function_tool, FunctionTool, trace, ItemHelpers, AgentOutputSchema
-from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 from openai import OpenAI
-from abilityData import *
-from abilityDefinitions import *
-from typing_extensions import TypedDict
-from dotenv import load_dotenv
-from AmountProcessors.amount_processing import AmountProcessor
-from Agents.agent_registry import agent_registry
-from Agents.CardAgents import register_agents, trigger_schema_tool, effect_schema_tool, target_schema_tool
-# Load environment variables from .env file
-load_dotenv()
-
-register_agents()
-amount_processor = AmountProcessor()
+from abilityGenerationPipeline import AbilityGenerationPipeline
+from Agents.CardAgents import register_agents
 
 async def generate_art(card_description: str):
     client = OpenAI()
-    prompt = f"""Create a vibrant, stylized illustration in the style of a marvel comic cover. Depict: {card_description}. 
-    Focus on a single creature in a dynamic pose, with an expressive face and action-ready posture. 
-    Use a clean digital art style with bold outlines, smooth gradients. 
-    Include a simple background. 
-    The artwork should be suitable for use on a marvel comic cover.
+    prompt = f"""Create a detailed, high-fantasy illustration in the style of Magic: The Gathering trading cards. 
+    The scene features: {card_description}. Use dramatic lighting, rich colors, and painterly textures. 
+    The composition should be dynamic and focused on the main subject, with a complementary background. 
+    The mood should match the description. Do not include any text or borders—only the illustration.
     """
 
     result = client.images.generate(
@@ -39,56 +24,21 @@ async def generate_art(card_description: str):
 #         print(tool.description)
 #         print(json.dumps(tool.params_json_schema, indent=2))
 #         print()
+register_agents()
 
 async def Generate_Ability(ability_description: str, card_description: str):
-
-    # with trace("Ability Enhancement"):
-    #     enhanced_ability_description = await Runner.run(prompt_enhance_agent, ability_description)
-    #     print(enhanced_ability_description.final_output)
-
-    trigger_agent = agent_registry.get_agent('trigger_agent')
-    effect_agent = agent_registry.get_agent('effect_agent')
-    target_agent = agent_registry.get_agent('target_agent')
-
-    result = None
-    with trace("Ability Configuration"):
-        Trigger_res, Effect_res, Target_res, art_url = await asyncio.gather(
-            Runner.run(trigger_agent, ability_description),
-            Runner.run(effect_agent, ability_description),
-            Runner.run(target_agent, ability_description),
-            generate_art(card_description)
-        )
-
-        outputs = {
-            "trigger": Trigger_res.final_output,  # type: AbilityTrigger
-            "effect": Effect_res.final_output,    # type: AbilityEffect
-            "target": Target_res.final_output,    # type: TargetData
-        }
-
-        # Collect initial amount queries
-        initial_queries = []
-        for output in outputs.values():
-            initial_queries.extend(amount_processor.check_amount_data(output))
-        
-        # Process amount queries recursively
-        processed_results = await amount_processor.process_amount_data(initial_queries)
-        
-        # Update outputs with processed results
-        for output in outputs.values():
-            await amount_processor.update_processed_amounts(output, processed_results)
+    """
+    Generate a complete ability using the AbilityGenerationPipeline.
     
-        result = AbilityResponse(
-            AbilityDefinition=AbilityDefinition(
-                triggerDefinition=outputs["trigger"],
-                targetDefinition=[outputs["target"]],
-                effect=outputs["effect"].effectType,
-                amount=outputs["effect"].amount,
-            ),
-            CardArtUrl=art_url,
-        )
-
-        print(result)
-    return result
+    Args:
+        ability_description (str): Description of the ability to generate
+        card_description (str): Description of the card for art generation
+        
+    Returns:
+        AbilityResponse: Complete ability response with definition and art URL
+    """
+    pipeline = AbilityGenerationPipeline()
+    return await pipeline.generate_ability(ability_description, card_description)
     
     # with trace("Result Examination"):
     #     result_examination_res = await Runner.run(result_examination_agent, f"ability description: {ability_description}\nability json: {result}")
@@ -128,5 +78,5 @@ async def Generate_Ability(ability_description: str, card_description: str):
 #     }.
 
 if __name__ == "__main__":
-    card_description = "A techno-organic creature that scans the battlefield."
-    asyncio.run(Generate_Ability("On reveal: give the top card of your deck +2 power.", card_description))
+    card_description = "Human torch from marvel comics."
+    asyncio.run(Generate_Ability("End of turn: gain +1 power. If this has 5 or more power, draw a card.", card_description))

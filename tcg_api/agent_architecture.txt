@@ -25,14 +25,8 @@ The `Generate_Ability` function implements a sophisticated multi-agent LLM syste
 - **Handoffs**: Can handoff to `create_card_effect_agent` for card creation effects
 - **Specialization**: Handles card generation effects through specialized sub-agent
 
-#### Target Agent
-- **Purpose**: Identifies the target that the ability affects (not the trigger target)
-- **Input**: Card ability description (string)
-- **Output**: `TargetData` object specifying the effect target
-- **Tools**:
-  - `target_schema_tool`: Validates and constructs target objects
-  - `get_valid_effect_target_types`: Determines valid target types for effect types
-- **Key Logic**: Target is determined by effect type, not trigger type
+#### Condition Agent
+- 
 
 ### 2. Specialized Agents
 
