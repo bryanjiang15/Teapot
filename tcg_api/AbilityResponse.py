@@ -9,7 +9,7 @@ class AbilityRequest(BaseModel):
 
 class AbilityDefinition(BaseModel):
     triggerDefinition: SnapTriggerDefinition
-    snapComponentDefinitions: list[SnapComponentDefinition]
+    snapComponentDefinitions: list[SnapComponentUnion]
 
 class AbilityResponse(BaseModel):
     AbilityDefinition: AbilityDefinition

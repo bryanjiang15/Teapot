@@ -9,7 +9,7 @@ from Agents.agent_registry import agent_registry
 from Agents.CardAgents import register_agents
 from SnapComponents.SnapComponent import SnapComponent, SnapComponentType
 from AbilityResponse import AbilityResponse, AbilityDefinition
-from SnapComponents.SnapComponentDefinition import SnapConditionDefinition, SnapActionDefinition, SnapComponentDefinition, SnapTriggerDefinition
+from SnapComponents.SnapComponentDefinition import SnapConditionDefinition, SnapActionDefinition, SnapComponentDefinition, SnapTriggerDefinition, SnapComponentUnion
 
 # Load environment variables from .env file
 load_dotenv()
@@ -89,13 +89,13 @@ class AbilityGenerationPipeline:
         elif component.componentType == SnapComponentType.Action:
             effect_res = await Runner.run(effect_agent, component.componentDescription)
             target_res = await Runner.run(target_agent, component.componentDescription)
-            return SnapActionDefinition(componentType=SnapComponentType.Action, effect=effect_res.final_output.effectType, amount=effect_res.final_output.amount, targetDefinition=target_res.final_output)
+            return SnapActionDefinition(componentType=SnapComponentType.Action, effect=effect_res.final_output.effectType, amount=effect_res.final_output.amount , targetDefinition=[target_res.final_output])
         elif component.componentType == SnapComponentType.IF:
             result = await Runner.run(requirement_agent, component.componentDescription)
-            return SnapConditionDefinition(componentType=SnapComponentType.IF, condition=result.final_output)
+            return SnapConditionDefinition(componentType=SnapComponentType.IF, requirement=result.final_output, requirementTarget=result.final_output.target)
         elif component.componentType == SnapComponentType.WHILE:
             result = await Runner.run(requirement_agent, component.componentDescription)
-            return SnapConditionDefinition(componentType=SnapComponentType.WHILE, condition=result.final_output)
+            return SnapConditionDefinition(componentType=SnapComponentType.WHILE, requirement=result.final_output, requirementTarget=result.final_output.target)
         elif component.componentType == SnapComponentType.ELSE:
             return SnapComponentDefinition(componentType=SnapComponentType.ELSE)
         # elif component.componentType == SnapComponentType.CHOICE:
@@ -167,7 +167,7 @@ class AbilityGenerationPipeline:
             "requirement": Requirement_res.final_output,
         }
     
-    async def process_amount_data(self, components: list):
+    async def process_amount_data(self, components: list[SnapComponentUnion]):
         """
         Process amount data in the components and update them with processed results.
         

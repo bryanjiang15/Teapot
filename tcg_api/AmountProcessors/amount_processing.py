@@ -2,18 +2,21 @@ import asyncio
 from agents import Runner
 from abilityDefinitions import *
 from Agents.agent_registry import agent_registry
-from SnapComponents.SnapComponentDefinition import *
+from SnapComponents.SnapComponentDefinition import SnapTriggerDefinition, SnapActionDefinition, SnapConditionDefinition, SnapComponentDefinition, SnapComponentUnion
 
 class AmountProcessor:
     def __init__(self):
         pass
 
-    def check_amount_data(self, data: SnapTriggerDefinition | SnapActionDefinition | SnapConditionDefinition | SnapComponentDefinition) -> list[str]:
+    def check_amount_data(self, data: SnapComponentUnion) -> list[str]:
         """Process the amount data for the given data type."""
         if isinstance(data, SnapActionDefinition):
-            return data.effect.get_processable_queries() + data.targetDefinition.get_processable_queries()
+            res = []
+            for target in data.targetDefinition:
+                res.extend(target.get_processable_queries())
+            return res + data.amount.get_processable_queries()
         elif isinstance(data, SnapConditionDefinition):
-            return data.condition.get_processable_queries()
+            return data.requirement.get_processable_queries()
         elif isinstance(data, SnapTriggerDefinition):
             return data.trigger.get_processable_queries()
         return []
@@ -53,12 +56,14 @@ class AmountProcessor:
         
         return processed_results
     
-    def update_processed_amounts(self, data: SnapTriggerDefinition | SnapActionDefinition | SnapConditionDefinition | SnapComponentDefinition, processed_results: dict[str, dict]) -> None:
+    def update_processed_amounts(self, data: SnapComponentUnion, processed_results: dict[str, dict]) -> None:
         """Update the processed amount data for the given data."""
         if isinstance(data, SnapActionDefinition):
-            data.effect.update_data(processed_results)
+            for target in data.targetDefinition:
+                target.update_data(processed_results)
+            data.amount.update_data(processed_results)
         elif isinstance(data, SnapConditionDefinition):
-            data.condition.update_data(processed_results)
+            data.requirement.update_data(processed_results)
         elif isinstance(data, SnapTriggerDefinition):
             data.trigger.update_data(processed_results)
         elif isinstance(data, SnapComponentDefinition):
