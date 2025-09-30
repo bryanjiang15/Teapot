@@ -27,6 +27,7 @@ Foundation layer providing authentication, database connections, and basic API s
 #### **Components to Build:**
 
 **Database Schema:**
+Example data modals to have
 ```sql
 -- Users table
 CREATE TABLE users (
