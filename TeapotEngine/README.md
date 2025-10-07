@@ -1,0 +1,155 @@
+# TeapotEngine
+
+A flexible, ruleset-driven game engine for TCG games. TeapotEngine provides a shared library for implementing game logic that can be used by both client and server applications.
+
+## Features
+
+- **Event-Driven Architecture**: Uses event sourcing for game state management
+- **Flexible Rulesets**: Support for custom game rules via JSON IR
+- **Reaction System**: Support for triggered abilities and interactions
+- **Deterministic**: Reproducible games with seeded RNG
+- **Extensible**: Easy to add new game mechanics and rules
+
+## Quick Start
+
+```python
+from teapot_engine import GameEngine, RulesetIR
+
+# Create a game engine
+engine = GameEngine()
+
+# Load a ruleset
+ruleset_data = {
+    "version": "1.0.0",
+    "metadata": {"name": "Basic TCG", "author": "Teapot Team"},
+    "turn_structure": {
+        "phases": [
+            {
+                "id": "main",
+                "name": "Main Phase",
+                "steps": [
+                    {"id": "main1", "name": "Main Phase 1", "mandatory": False}
+                ]
+            }
+        ]
+    },
+    "actions": [
+        {
+            "id": "play_card",
+            "name": "Play Card",
+            "timing": "stack",
+            "preconditions": [
+                {"op": "has_resource", "resource": "mana", "atLeast": 1}
+            ],
+            "costs": [
+                {"op": "pay_resource", "resource": "mana", "amount": 1}
+            ],
+            "effects": [
+                {"op": "move_zone", "target": "card", "to": "battlefield"}
+            ]
+        }
+    ]
+}
+
+ruleset = RulesetIR.from_dict(ruleset_data)
+
+# Create a match
+match = engine.create_match("match_123", ruleset.dict())
+
+# Process an action
+result = await engine.process_action("match_123", {
+    "type": "play_card",
+    "card_id": "card_123",
+    "player_id": "player1"
+})
+```
+
+## Architecture
+
+### Core Components
+
+- **GameEngine**: Main engine that manages match actors
+- **MatchActor**: Single-threaded actor that manages a match's state
+- **GameState**: Event-sourced game state
+- **EventStack**: LIFO stack for event resolution
+- **RulesetIR**: Intermediate representation for game rules
+
+### Event System
+
+The engine uses an event-driven architecture where all game state changes are represented as events:
+
+```python
+from teapot_engine import Event
+
+# Create an event
+event = Event(
+    type="CardPlayed",
+    payload={"card_id": "card_123", "player_id": "player1"}
+)
+
+# Apply to game state
+game_state.apply_event(event)
+```
+
+### Ruleset System
+
+Game rules are defined using a JSON-based intermediate representation:
+
+```json
+{
+  "version": "1.0.0",
+  "turn_structure": {
+    "phases": [
+      {
+        "id": "main",
+        "name": "Main Phase",
+        "steps": [
+          {"id": "main1", "name": "Main Phase 1", "mandatory": false}
+        ]
+      }
+    ]
+  },
+  "actions": [
+    {
+      "id": "play_card",
+      "name": "Play Card",
+      "timing": "stack",
+      "preconditions": [
+        {"op": "has_resource", "resource": "mana", "atLeast": 1}
+      ],
+      "costs": [
+        {"op": "pay_resource", "resource": "mana", "amount": 1}
+      ],
+      "effects": [
+        {"op": "move_zone", "target": "card", "to": "battlefield"}
+      ]
+    }
+  ]
+}
+```
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Development
+
+```bash
+# Install development dependencies
+pip install -e .[dev]
+
+# Run tests
+pytest
+
+# Format code
+black teapot_engine/
+
+# Type checking
+mypy teapot_engine/
+```
+
+## License
+
+MIT License - see LICENSE file for details.

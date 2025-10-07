@@ -13,6 +13,24 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
+async def get_current_user_id(
+    token: str = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db)
+) -> str:
+    """Get current user ID from token"""
+    user_repo = UserRepository(db)
+    auth_service = AuthService(user_repo)
+    
+    user_id = auth_service.verify_token(token)
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    return user_id
+
 @router.post("/register", response_model=UserResponse)
 async def register(
     user_data: UserCreate,
@@ -24,7 +42,7 @@ async def register(
     
     try:
         user = await auth_service.register_user(user_data)
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -66,23 +84,5 @@ async def get_current_user(
             detail="User not found"
         )
     
-    return UserResponse.from_orm(user)
+    return UserResponse.model_validate(user)
 
-
-async def get_current_user_id(
-    token: str = Depends(oauth2_scheme),
-    db: AsyncSession = Depends(get_db)
-) -> str:
-    """Get current user ID from token"""
-    user_repo = UserRepository(db)
-    auth_service = AuthService(user_repo)
-    
-    user_id = auth_service.verify_token(token)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    return user_id

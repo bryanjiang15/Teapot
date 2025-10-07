@@ -1,0 +1,2 @@
+[console_scripts]
+teapot-engine = teapot_engine.cli:main
