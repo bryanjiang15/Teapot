@@ -8,55 +8,51 @@ import os
 
 from core.engine import GameEngine
 from ruleset.ir import RulesetIR
+from example_ruleset import get_example_ruleset
 
 def main():
     """Example usage"""
     print("🎮 TeapotEngine Example")
     print("=" * 50)
     
-    # Create a basic ruleset
-    ruleset_data = {
-        "version": "1.0.0",
-        "metadata": {"name": "Basic TCG", "author": "Teapot Team"},
-        "turn_structure": {
-            "phases": [
-                {
-                    "id": 1,
-                    "name": "Main Phase",
-                    "steps": [
-                        {"id": 1, "name": "Main Phase 1", "mandatory": True},
-                        {"id": 2, "name": "Main Phase 2", "mandatory": False}
-                    ]
-                }
-            ]
-        },
-        "actions": [
-            {
-                "id": 1,
-                "name": "Play Card",
-                "timing": "stack",
-                "phase_ids": [1],
-                "zone_ids": [1, 2],
-                "preconditions": [
-                    {"op": "has_resource", "resource": "mana", "atLeast": 1}
-                ],
-                "costs": [
-                    {"op": "pay_resource", "resource": "mana", "amount": 1}
-                ],
-                "effects": [
-                    {"op": "move_zone", "target": "card", "to": "battlefield"}
-                ]
-            }
-        ]
-    }
+    # Get the example ruleset
+    ruleset_data = get_example_ruleset()
     
     # Create ruleset
     ruleset = RulesetIR.from_dict(ruleset_data)
     print(f"✅ Created ruleset: {ruleset.metadata['name']}")
+    print(f"   Description: {ruleset.metadata['description']}")
+    print(f"   Resources: {len(ruleset.resources)}")
+    print(f"   Zones: {len(ruleset.zones)}")
+    print(f"   Actions: {len(ruleset.actions)}")
+    print(f"   Triggers: {len(ruleset.triggers)}")
+    print(f"   Keywords: {len(ruleset.keywords)}")
+    
+    # Display resources
+    print("\n📊 Resources:")
+    for resource in ruleset.resources:
+        scope_info = f"({resource.scope.value})"
+        print(f"   - {resource.name}: {resource.description} {scope_info}")
+        print(f"     Type: {resource.resource_type.value}, Starting: {resource.starting_amount}")
+        if resource.max_per_turn:
+            print(f"     Max per turn: {resource.max_per_turn}")
+        if resource.regeneration_per_turn:
+            print(f"     Regeneration: {resource.regeneration_per_turn}/turn")
+    
+    # Display zones
+    print("\n🗂️  Zones:")
+    for zone in ruleset.zones:
+        print(f"   - {zone.name}: {zone.description} ({zone.zone_type.value})")
+    
+    # Display actions
+    print("\n⚡ Actions:")
+    for action in ruleset.actions:
+        print(f"   - {action.name}: {action.description}")
+        print(f"     Timing: {action.timing}, Phases: {action.phase_ids}")
     
     # Create game engine
     engine = GameEngine()
-    print("✅ Created game engine")
+    print("\n✅ Created game engine")
     
     # Create a match
     match_id = "example_match"
@@ -72,6 +68,14 @@ def main():
     print(f"✅ Available actions: {len(actions)}")
     for action in actions:
         print(f"   - {action['name']} ({action['id']})")
+    
+    # Display turn structure
+    print("\n🔄 Turn Structure:")
+    for phase in ruleset.turn_structure.phases:
+        print(f"   Phase {phase.id}: {phase.name}")
+        for step in phase.steps:
+            mandatory = " (mandatory)" if step.mandatory else ""
+            print(f"     - Step {step.id}: {step.name}{mandatory}")
     
     print("\n🎉 Example completed successfully!")
 

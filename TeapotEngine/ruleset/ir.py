@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
 from ruleset.rulesetModels import ZoneVisibilityType
+from ruleset.models import ResourceDefinition
 
 
 class StepDefinition(BaseModel):
@@ -83,7 +84,7 @@ class RulesetIR(BaseModel):
     triggers: List[TriggerDefinition] = Field(default_factory=list)
     zones: List[ZoneDefinition] = Field(default_factory=list)
     keywords: List[KeywordDefinition] = Field(default_factory=list)
-    resources: List[Dict[str, Any]] = Field(default_factory=list)
+    resources: List[ResourceDefinition] = Field(default_factory=list)
     constants: Dict[str, Any] = Field(default_factory=dict)
     
     class Config:
@@ -126,4 +127,11 @@ class RulesetIR(BaseModel):
         for keyword in self.keywords:
             if keyword.id == keyword_id:
                 return keyword
+        return None
+    
+    def get_resource(self, resource_id: int) -> Optional[ResourceDefinition]:
+        """Get a resource definition by ID"""
+        for resource in self.resources:
+            if resource.id == resource_id:
+                return resource
         return None
