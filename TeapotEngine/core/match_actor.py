@@ -92,8 +92,7 @@ class MatchActor:
     def _validate_action(self, action: Dict[str, Any]) -> bool:
         """Validate an action against the ruleset"""
         # This would use the ruleset interpreter to validate
-        # For now, basic validation
-        return action.get("type") in [1, 2, 3]  # Updated to use integer IDs
+        return self.interpreter.validate_action(action, self.state, action["player_id"])
     
     def _action_to_events(self, action: Dict[str, Any]) -> List[Event]:
         """Convert an action to events"""
