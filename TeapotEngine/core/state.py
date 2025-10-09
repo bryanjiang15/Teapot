@@ -4,6 +4,9 @@ Game state management with event sourcing
 
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Set
+
+from ruleset.models.player_models import Player
+from ruleset.models.resource_models import GameResourceManager
 from .events import Event
 
 
@@ -16,14 +19,14 @@ class GameState:
     current_step: str = "untap"
     turn_number: int = 1
     
-    # Player states
-    players: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    # Player states - now using Player objects
+    players: Dict[str, 'Player'] = field(default_factory=dict)
+    
+    # Resource manager for this match
+    resource_manager: Optional['GameResourceManager'] = None
     
     # Zones and cards
     zones: Dict[str, Dict[str, Any]] = field(default_factory=dict)
-    
-    # Resources and counters
-    resources: Dict[str, Dict[str, Any]] = field(default_factory=dict)
     
     # Game flags and status
     flags: Dict[str, Any] = field(default_factory=dict)
@@ -33,16 +36,6 @@ class GameState:
     
     def __post_init__(self):
         """Initialize default zones and player states"""
-        if not self.players:
-            # Initialize with default player structure
-            for player_id in ["player1", "player2"]:  # Default for now
-                self.players[player_id] = {
-                    "life_total": 20,
-                    "hand_size": 7,
-                    "deck_size": 60,
-                    "graveyard_size": 0
-                }
-        
         if not self.zones:
             # Initialize default zones
             self.zones = {
@@ -52,6 +45,18 @@ class GameState:
                 "exile": [],
                 "deck": {"player1": [], "player2": []}
             }
+    
+    def add_player(self, player: 'Player') -> None:
+        """Add a player to the game state"""
+        self.players[player.id] = player
+    
+    def get_player(self, player_id: str) -> Optional['Player']:
+        """Get a player by ID"""
+        return self.players.get(player_id)
+    
+    def set_resource_manager(self, resource_manager: 'GameResourceManager') -> None:
+        """Set the resource manager for this match"""
+        self.resource_manager = resource_manager
     
     def apply_event(self, event: Event) -> None:
         """Apply an event to the game state"""
@@ -105,13 +110,20 @@ class GameState:
             else:
                 self.zones[to_zone].append(card_id)
     
-    def _change_resource(self, player_id: str, resource: str, amount: int) -> None:
-        """Change a player's resource amount"""
-        if player_id not in self.resources:
-            self.resources[player_id] = {}
+    def _change_resource(self, player_id: str, resource_id: int, amount: int) -> None:
+        """Change a player's resource amount using the new resource system"""
+        player = self.get_player(player_id)
+        if not player or not self.resource_manager:
+            return
         
-        current = self.resources[player_id].get(resource, 0)
-        self.resources[player_id][resource] = current + amount
+        resource_def = self.resource_manager.get_resource_definition(resource_id)
+        if not resource_def:
+            return
+        
+        if amount > 0:
+            player.gain_resource(resource_id, amount, resource_def)
+        else:
+            player.spend_resource(resource_id, abs(amount), resource_def)
     
     def _deal_damage(self, target: str, amount: int, source: Optional[str] = None) -> None:
         """Deal damage to a target"""
@@ -154,9 +166,8 @@ class GameState:
             "current_phase": self.current_phase,
             "current_step": self.current_step,
             "turn_number": self.turn_number,
-            "players": self.players,
+            "players": {pid: player.to_dict() for pid, player in self.players.items()},
             "zones": self.zones,
-            "resources": self.resources,
             "flags": self.flags,
             "event_count": len(self.event_log)
         }

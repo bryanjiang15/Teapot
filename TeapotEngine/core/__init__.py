@@ -8,6 +8,7 @@ from core.events import Event, Reaction, StackItem, PendingInput
 from core.state import GameState
 from core.stack import EventStack
 from core.rng import DeterministicRNG
+from core.interpreter import RulesetInterpreter
 
 __all__ = [
     "GameEngine",
@@ -18,5 +19,6 @@ __all__ = [
     "PendingInput",
     "GameState",
     "EventStack",
-    "DeterministicRNG"
+    "DeterministicRNG",
+    "RulesetInterpreter"
 ]

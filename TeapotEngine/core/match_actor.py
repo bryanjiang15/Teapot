@@ -7,7 +7,7 @@ from core.state import GameState
 from core.events import Event, Reaction, StackItem, PendingInput, EventStatus, StackItemType
 from core.stack import EventStack
 from core.rng import DeterministicRNG
-from ruleset.interpreter import RulesetInterpreter
+from .interpreter import RulesetInterpreter
 
 
 class MatchActor:
@@ -24,6 +24,12 @@ class MatchActor:
         
         # Initialize game state
         self.state = GameState(match_id=match_id, active_player="player1")
+        
+        # Initialize resource manager
+        from ruleset.models import GameResourceManager
+        resource_manager = GameResourceManager(ruleset_obj.resources)
+        resource_manager.initialize_global_resources()
+        self.state.set_resource_manager(resource_manager)
         
         # Initialize stack and RNG
         self.stack = EventStack()
@@ -86,8 +92,7 @@ class MatchActor:
     def _validate_action(self, action: Dict[str, Any]) -> bool:
         """Validate an action against the ruleset"""
         # This would use the ruleset interpreter to validate
-        # For now, basic validation
-        return action.get("type") in [1, 2, 3]  # Updated to use integer IDs
+        return self.interpreter.validate_action(action, self.state, action["player_id"])
     
     def _action_to_events(self, action: Dict[str, Any]) -> List[Event]:
         """Convert an action to events"""

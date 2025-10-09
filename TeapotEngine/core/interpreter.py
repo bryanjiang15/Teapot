@@ -3,9 +3,9 @@ Ruleset IR interpreter for game logic
 """
 
 from typing import Dict, Any, List, Optional
-from .ir import RulesetIR, ActionDefinition, PhaseDefinition
-from core.state import GameState
-from core.events import Event, Reaction
+from ruleset.ir import RulesetIR, ActionDefinition, PhaseDefinition
+from .state import GameState
+from .events import Event, Reaction
 
 
 class RulesetInterpreter:
@@ -61,8 +61,18 @@ class RulesetInterpreter:
         if op == "has_resource":
             resource = condition.get("resource")
             amount = condition.get("atLeast", 0)
-            current = game_state.resources.get(player_id, {}).get(resource, 0)
-            return current >= amount
+            player = game_state.get_player(player_id)
+            if not player:
+                return False
+            
+            # Get resource manager to find resource by name
+            if game_state.resource_manager:
+                for resource_def in game_state.resource_manager.resource_definitions.values():
+                    if resource_def.name == resource:
+                        player_resource = player.get_resource(resource_def.id)
+                        if player_resource and player_resource.current_amount >= amount:
+                            return True
+            return False
         
         elif op == "in_zone":
             zone = condition.get("zone")
