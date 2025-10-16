@@ -105,7 +105,8 @@ class MatchActor:
             action_event = Event(
                 type=ACTION_EXECUTED,
                 payload={"action_id": action["type"], "player_id": action["player_id"]},
-                order=self.stack.get_next_order()
+                order=self.stack.get_next_order(),
+                caused_by=action["player_id"]
             )
             event_id = self.event_registry.register(action_event)
             

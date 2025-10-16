@@ -291,7 +291,7 @@ class RulesetInterpreter:
         """Check if a player can take a specific action"""
         #Check Zone and Phase Conditions
         current_phase = game_state.current_phase
-        if current_phase not in action.phase_ids:
+        if action.phase_ids and current_phase not in action.phase_ids:
             return False
 
         # Check preconditions
