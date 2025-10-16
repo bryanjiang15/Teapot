@@ -141,7 +141,13 @@ def get_example_ruleset():
                 ],
                 "effects": [
                     {"op": "move_zone", "target": "card", "from": "hand", "to": "battlefield"}
-                ]
+                ],
+                "primary_target_type": "card",
+                # "primary_target_selector": {
+                #     "zone": "hand",
+                #     "controller": "self"
+                # },
+                "interaction_mode": "drag"
             },
             {
                 "id": 2,
@@ -156,21 +162,26 @@ def get_example_ruleset():
                 ],
                 "effects": [
                     {"op": "declare_attack", "target": "opponent"}
-                ]
+                ],
+                "primary_target_type": "card",
+                "primary_target_selector": {
+                    "zone": "battlefield",
+                    "controller": "self"
+                },
+                "interaction_mode": "multi_select"
             },
             {
                 "id": 3,
-                "name": "Draw Card",
-                "description": "Draw a card from library",
+                "name": "Manual Draw",
+                "description": "Spend 1 mana to draw a card",
                 "timing": "instant",
-                "phase_ids": [1, 2, 3, 4],
+                "phase_ids": [2],  # Main phase
                 "zone_ids": [4],
                 "preconditions": [
                     {"op": "zone_contains", "zone": "library", "min": 1}
                 ],
-                "effects": [
-                    {"op": "move_zone", "target": "card", "from": "library", "to": "hand"}
-                ]
+                "costs": [{"op": "pay_resource", "resource": "mana", "amount": 1}],
+                "execute_rules": [1]  # Execute DrawCard rule
             },
             {
                 "id": 4,
@@ -188,26 +199,47 @@ def get_example_ruleset():
                 ],
                 "effects": [
                     {"op": "deal_damage", "target": "opponent", "amount": 1}
-                ]
+                ],
+                "primary_target_type": "card",
+                "primary_target_selector": {
+                    "zone": "battlefield",
+                    "controller": "self"
+                },
+                "interaction_mode": "button"
             }
         ],
         "triggers": [
             {
-                "id": 1,
-                "when": {"event": "card_played", "card_type": "creature"},
+                "id": 9,
+                "when": {"eventType": "MatchStarted", "filters": {}},
                 "conditions": [],
-                "effects": [
-                    {"op": "gain_resource", "resource": "energy", "amount": 1}
-                ],
+                "execute_rules": [1],
+                "timing": "post",
+                "triggerSource": {
+                    "description": "All players",
+                    "type": "player",
+                    "selector": {"controller": "all"}
+                }
+            },
+            {
+                "id": 10,
+                "when": {"eventType": "PhaseEntered", "filters": {"phase_id": 1}},
+                "conditions": [],
+                "execute_rules": [1],  # Auto-draw in draw phase
                 "timing": "post"
             },
             {
-                "id": 2,
-                "when": {"event": "turn_start"},
+                "id": 11,
+                "when": {"eventType": "PhaseEntered", "filters": {"phase_id": 2}},
                 "conditions": [],
-                "effects": [
-                    {"op": "gain_resource", "resource": "mana", "amount": 1}
-                ],
+                "execute_rules": [2],  # Gain mana in main phase
+                "timing": "post"
+            },
+            {
+                "id": 12,
+                "when": {"eventType": "RuleExecuted", "filters": {"rule_id": 1}},
+                "conditions": [{"op": "hand_size", "operator": ">", "value": 7}],
+                "execute_rules": [],  # Could trigger discard
                 "timing": "post"
             }
         ],
@@ -232,6 +264,36 @@ def get_example_ruleset():
                 ],
                 "grants": [
                     {"op": "damage_timing", "priority": "first"}
+                ]
+            }
+        ],
+        "rules": [
+            {
+                "id": 1,
+                "name": "DrawCard",
+                "description": "Draw one card from deck",
+                "parameters": [
+                    {"name": "count", "type": "integer", "default": 1},
+                    {"name": "player_id", "type": "string", "default": "self"}
+                ],
+                "effects": [
+                    {"op": "move_card", "from_zone": "deck", "to_zone": "hand", "count": 1, "player_id": "self"}
+                ]
+            },
+            {
+                "id": 2,
+                "name": "GainMana",
+                "description": "Gain 1 mana",
+                "effects": [
+                    {"op": "gain_resource", "resource": "mana", "amount": 1}
+                ]
+            },
+            {
+                "id": 3,
+                "name": "GainEnergy",
+                "description": "Gain 1 energy",
+                "effects": [
+                    {"op": "gain_resource", "resource": "energy", "amount": 1}
                 ]
             }
         ],

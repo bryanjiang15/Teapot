@@ -3,9 +3,83 @@ Ruleset IR interpreter for game logic
 """
 
 from typing import Dict, Any, List, Optional
-from ruleset.ir import RulesetIR, ActionDefinition, PhaseDefinition
+from ruleset.ir import RulesetIR, ActionDefinition, PhaseDefinition, SelectableObjectType, RuleDefinition
 from .state import GameState
-from .events import Event, Reaction
+from .events import Event, Reaction, PHASE_ENTERED, PHASE_EXITED, ACTION_EXECUTED, RULE_EXECUTED, CARD_MOVED, RESOURCE_CHANGED, DAMAGE_DEALT
+
+
+class RuleExecutor:
+    """Executes rules and translates effects into events"""
+    
+    def __init__(self, ruleset: RulesetIR):
+        self.ruleset = ruleset
+    
+    def execute_rule(
+        self,
+        rule_id: int,
+        caused_by: Dict[str, str],
+        game_state: GameState
+    ) -> List[Event]:
+        """Execute a rule and return generated events"""
+        rule = self.ruleset.get_rule(rule_id)
+        if not rule:
+            return []
+        
+        events = []
+        
+        for effect in rule.effects:
+            op = effect.get("op")
+            
+            if op == "execute_rule":
+                # Recursively execute another rule
+                nested_events = self.execute_rule(
+                    effect["rule_id"], caused_by, game_state
+                )
+                events.extend(nested_events)
+            
+            elif op == "move_card":
+                events.append(Event(
+                    type=CARD_MOVED,
+                    payload={
+                        "card_id": effect.get("card_id", "top_card"),
+                        "from_zone": effect.get("from_zone", "deck"),
+                        "to_zone": effect.get("to_zone", "hand"),
+                        # If the effect refers to "self", resolve based on caused_by
+                        "player_id": (
+                            game_state.get_player(effect.get("player_id", "self"), caused_by).id
+                        )
+                    }
+                ))
+            
+            elif op == "gain_resource":
+                events.append(Event(
+                    type=RESOURCE_CHANGED,
+                    payload={
+                        "player_id": caused_by,
+                        "resource": effect.get("resource", "mana"),
+                        "amount": effect.get("amount", 1)
+                    }
+                ))
+            
+            elif op == "deal_damage":
+                events.append(Event(
+                    type=DAMAGE_DEALT,
+                    payload={
+                        "target": effect.get("target"),
+                        "amount": effect.get("amount", 1),
+                        "source": effect.get("source")
+                    }
+                ))
+            
+            # Add more effect types as needed
+        
+        # Emit RuleExecuted event for potential triggers
+        events.append(Event(
+            type=RULE_EXECUTED,
+            payload={"rule_id": rule_id, "caused_by": caused_by}
+        ))
+        
+        return events
 
 
 class RulesetInterpreter:
@@ -15,9 +89,17 @@ class RulesetInterpreter:
         self.ruleset = ruleset_ir
         self._action_cache: Dict[int, ActionDefinition] = {}
         self._phase_cache: Dict[int, PhaseDefinition] = {}
+        self._rule_cache: Dict[int, RuleDefinition] = {}
+        
+        # NEW: Trigger index by event type for fast lookup
+        self._trigger_index: Dict[str, List] = {}
         
         # Build caches for fast lookup
         self._build_caches()
+        self._build_trigger_index()
+        
+        # Initialize rule executor
+        self.rule_executor = RuleExecutor(ruleset_ir)
     
     def _build_caches(self) -> None:
         """Build lookup caches for performance"""
@@ -26,6 +108,27 @@ class RulesetInterpreter:
         
         for phase in self.ruleset.turn_structure.phases:
             self._phase_cache[phase.id] = phase
+        
+        for rule in self.ruleset.rules:
+            self._rule_cache[rule.id] = rule
+    
+    def _build_trigger_index(self) -> None:
+        """Build index of triggers by event type for efficient discovery"""
+        self._trigger_index.clear()
+        
+        for trigger in self.ruleset.triggers:
+            event_type = trigger.when.get("eventType")
+            
+            if event_type:
+                # Index by specific event type
+                if event_type not in self._trigger_index:
+                    self._trigger_index[event_type] = []
+                self._trigger_index[event_type].append(trigger)
+            else:
+                # Wildcard trigger (matches any event) - store under special key
+                if "*" not in self._trigger_index:
+                    self._trigger_index["*"] = []
+                self._trigger_index["*"].append(trigger)
     
     def get_available_actions(self, game_state: GameState, player_id: str) -> List[Dict[str, Any]]:
         """Get available actions for a player given current game state"""
@@ -45,8 +148,152 @@ class RulesetInterpreter:
         
         return available_actions
     
+    def get_actions_for_object(
+        self, 
+        game_state: GameState, 
+        player_id: str, 
+        object_type: SelectableObjectType,
+        object_id: str
+    ) -> List[Dict[str, Any]]:
+        """Get available actions where the specified object is the primary target"""
+        available_actions = []
+        
+        for action in self.ruleset.actions:
+            # Check if this action can use the selected object as primary target
+            if self._object_matches_primary_target(action, object_type, object_id, game_state, player_id):
+                if self._can_take_action(action, game_state, player_id):
+                    # Build action response with interaction metadata
+                    action_response = {
+                        "id": action.id,
+                        "name": action.name,
+                        "description": action.description,
+                        "interaction_mode": action.interaction_mode,
+                        "costs": self._evaluate_costs(action.costs, game_state, player_id),
+                        "additional_targets": self._get_additional_targets(action, game_state, player_id),
+                        "ui": action.ui,
+                        "activation_requirements": self._get_activation_requirements(action)
+                    }
+                    available_actions.append(action_response)
+        
+        return available_actions
+    
+    def _object_matches_primary_target(
+        self, 
+        action: ActionDefinition, 
+        object_type: SelectableObjectType, 
+        object_id: str, 
+        game_state: GameState, 
+        player_id: str
+    ) -> bool:
+        """Check if the selected object matches the action's primary target requirements"""
+        # If no primary target type specified, this action doesn't use object selection
+        if not action.primary_target_type:
+            return False
+        
+        # Check if object type matches
+        if action.primary_target_type != object_type:
+            return False
+        
+        # If there's a selector, evaluate it
+        if action.primary_target_selector:
+            return self._evaluate_primary_target_selector(
+                action.primary_target_selector, 
+                object_id, 
+                game_state, 
+                player_id
+            )
+        
+        # If no selector, assume any object of the right type is valid
+        return True
+    
+    def _evaluate_primary_target_selector(
+        self, 
+        selector: Dict[str, Any], 
+        object_id: str, 
+        game_state: GameState, 
+        player_id: str
+    ) -> bool:
+        """Evaluate if the object matches the primary target selector"""
+        # Check zone requirements
+        if "zone" in selector:
+            object_location = game_state.get_card_location(object_id)
+            if not object_location or object_location[0] != selector["zone"]:
+                return False
+        
+        # Check controller requirements
+        if "controller" in selector:
+            if selector["controller"] == "self":
+                # Check if object is controlled by the player
+                object_location = game_state.get_card_location(object_id)
+                if not object_location or object_location[1] != player_id:
+                    return False
+            elif selector["controller"] == "opponent":
+                # Check if object is controlled by opponent
+                opponent_id = "player2" if player_id == "player1" else "player1"
+                object_location = game_state.get_card_location(object_id)
+                if not object_location or object_location[1] != opponent_id:
+                    return False
+        
+        # Add more selector conditions as needed
+        return True
+    
+    def _get_additional_targets(self, action: ActionDefinition, game_state: GameState, player_id: str) -> List[Dict[str, Any]]:
+        """Get additional targets needed beyond the primary target"""
+        additional_targets = []
+        
+        for target in action.targets:
+            target_id = target.get("id")
+            selector = target.get("selector", {})
+            
+            # Evaluate selector to get valid targets
+            valid_targets = self._evaluate_selector(selector, game_state, player_id)
+            
+            additional_targets.append({
+                "id": target_id,
+                "name": target.get("name", f"Target {target_id}"),
+                "target_type": target.get("target_type", "card"),
+                "count": target.get("count", 1),
+                "selector": selector,
+                "valid_targets": valid_targets
+            })
+        
+        return additional_targets
+    
+    def _get_activation_requirements(self, action: ActionDefinition) -> Dict[str, Any]:
+        """Get activation requirements for the action"""
+        requirements = {
+            "needs_button": action.interaction_mode == "button",
+            "needs_drag_target": action.interaction_mode == "drag",
+            "needs_additional_selection": action.interaction_mode == "multi_select",
+            "selection_count": len(action.targets) if action.interaction_mode == "multi_select" else 0
+        }
+        
+        # Add drag targets if it's a drag interaction
+        if action.interaction_mode == "drag":
+            requirements["drag_targets"] = self._get_drag_targets(action)
+        
+        return requirements
+    
+    def _get_drag_targets(self, action: ActionDefinition) -> List[str]:
+        """Get valid drag targets for drag interactions"""
+        drag_targets = []
+        
+        # Look for zone targets that could be drag destinations
+        for target in action.targets:
+            if target.get("target_type") == "zone":
+                zone_name = target.get("selector", {}).get("zone")
+                if zone_name:
+                    drag_targets.append(zone_name)
+        
+        return drag_targets
+    
     def _can_take_action(self, action: ActionDefinition, game_state: GameState, player_id: str) -> bool:
         """Check if a player can take a specific action"""
+        #Check Zone and Phase Conditions
+        current_phase = game_state.current_phase
+        if action.phase_ids and current_phase not in action.phase_ids:
+            return False
+
         # Check preconditions
         for precondition in action.preconditions:
             if not self._evaluate_condition(precondition, game_state, player_id):
@@ -150,36 +397,125 @@ class RulesetInterpreter:
         
         return []
     
+    def _evaluate_trigger_source(self, trigger_source, game_state: GameState, player_id: str) -> List[Dict[str, str]]:
+        """Evaluate a trigger source to get list of source objects with their types and IDs"""
+        if not trigger_source:
+            return []
+        
+        source_objects = []
+        
+        if trigger_source.type.value == "card":
+            # Get cards based on selector
+            if trigger_source.selector:
+                card_ids = self._evaluate_selector(trigger_source.selector, game_state, player_id)
+                for card_id in card_ids:
+                    source_objects.append({"object_type": "card", "object_id": card_id})
+            else:
+                # If no selector, get all cards in all zones
+                for zone_name in ["hand", "battlefield", "graveyard", "library"]:
+                    for player in ["player1", "player2"]:
+                        cards = game_state.get_player_zone(player, zone_name)
+                        for card_id in cards:
+                            source_objects.append({"object_type": "card", "object_id": card_id})
+        
+        elif trigger_source.type.value == "zone":
+            # Get zones based on selector
+            if trigger_source.selector:
+                zone_name = trigger_source.selector.get("zone")
+                if zone_name:
+                    source_objects.append({"object_type": "zone", "object_id": zone_name})
+            else:
+                # If no selector, get all zones
+                for zone_name in ["hand", "battlefield", "graveyard", "library"]:
+                    source_objects.append({"object_type": "zone", "object_id": zone_name})
+        
+        elif trigger_source.type.value == "player":
+            # Get players based on selector
+            if trigger_source.selector:
+                controller = trigger_source.selector.get("controller", "all")
+                if controller == "self":
+                    source_objects.append({"object_type": "player", "object_id": player_id})
+                elif controller == "opponent":
+                    opponent_id = "player2" if player_id == "player1" else "player1"
+                    source_objects.append({"object_type": "player", "object_id": opponent_id})
+                elif controller == "all":
+                    source_objects.append({"object_type": "player", "object_id": "player1"})
+                    source_objects.append({"object_type": "player", "object_id": "player2"})
+            else:
+                # Default to all players
+                source_objects.append({"object_type": "player", "object_id": "player1"})
+                source_objects.append({"object_type": "player", "object_id": "player2"})
+        
+        return source_objects
+    
     def discover_reactions(self, event: Event, game_state: GameState) -> List[Reaction]:
-        """Discover reactions that match an event"""
+        """Find all triggers that match an event using indexed lookup"""
         reactions = []
         
-        for trigger in self.ruleset.triggers:
+        # Get triggers indexed by this event type (O(1) lookup)
+        candidate_triggers = self._trigger_index.get(event.type, [])
+        
+        # Also check wildcard triggers
+        candidate_triggers.extend(self._trigger_index.get("*", []))
+        
+        # Filter candidates by conditions and filters
+        for trigger in candidate_triggers:
             if self._trigger_matches(trigger, event, game_state):
-                reaction = Reaction(
-                    id=f"reaction_{trigger.id}_{event.id}",
-                    when=trigger.when,
-                    conditions=trigger.conditions,
-                    effects=trigger.effects,
-                    timing=trigger.timing,
-                    source_id=trigger.source_id
-                )
-                reactions.append(reaction)
+                # Check if trigger has a triggerSource
+                if trigger.triggerSource:
+                    # Evaluate trigger source to get list of source objects
+                    source_objects = self._evaluate_trigger_source(trigger.triggerSource, game_state, event.caused_by or "player1")
+                    
+                    # Create one reaction per source object
+                    for source_obj in source_objects:
+                        # Check conditions for this specific source object
+                        if self._trigger_conditions_met_for_source(trigger, event, game_state, source_obj):
+                            reaction = Reaction(
+                                id=trigger.id,
+                                when=trigger.when,
+                                conditions=trigger.conditions,
+                                effects=trigger.execute_rules,
+                                timing=trigger.timing,
+                                caused_by=source_obj
+                            )
+                            reactions.append(reaction)
+                else:
+                    # No triggerSource - create single reaction with generic caused_by
+                    reaction = Reaction(
+                        id=trigger.id,
+                        when=trigger.when,
+                        conditions=trigger.conditions,
+                        effects=trigger.execute_rules,
+                        timing=trigger.timing,
+                        caused_by=trigger.caused_by
+                    )
+                    reactions.append(reaction)
         
         return reactions
     
     def _trigger_matches(self, trigger, event: Event, game_state: GameState) -> bool:
-        """Check if a trigger matches an event"""
-        when = trigger.when
-        event_type = when.get("eventType")
+        """Check if trigger matches event (filters and conditions only)"""
+        # Event type already matched by index lookup
         
-        if event_type and event.type != event_type:
-            return False
-        
-        # Check additional filters
-        filters = when.get("filters", {})
+        # Match filters
+        filters = trigger.when.get("filters", {})
         for key, value in filters.items():
             if event.payload.get(key) != value:
+                return False
+        
+        # Check conditions
+        for condition in trigger.conditions:
+            if not self._evaluate_condition(condition, game_state, event):
+                return False
+        
+        return True
+    
+    def _trigger_conditions_met_for_source(self, trigger, event: Event, game_state: GameState, source_obj: Dict[str, str]) -> bool:
+        """Check if trigger conditions are met for a specific source object"""
+        # For now, use the same condition evaluation as the general trigger
+        # In the future, this could be enhanced to evaluate conditions in context of the source object
+        for condition in trigger.conditions:
+            if not self._evaluate_condition(condition, game_state, event):
                 return False
         
         return True
