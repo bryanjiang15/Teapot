@@ -5,12 +5,14 @@ Example usage of TeapotEngine
 
 import sys
 import os
+import asyncio
 
+from core.state import Player
 from core.engine import GameEngine
 from ruleset.ir import RulesetIR
 from example_ruleset import get_example_ruleset
 
-def main():
+async def main():
     """Example usage"""
     print("🎮 TeapotEngine Example")
     print("=" * 50)
@@ -56,12 +58,22 @@ def main():
     
     # Create a match
     match_id = "example_match"
-    match = engine.create_match(match_id, ruleset.model_dump())
+    match = engine.create_match(match_id, ruleset.model_dump(), verbose=True)
     print(f"✅ Created match: {match_id}")
+
+    #Add players
+    match.state.add_player(Player(id="player1", name="Player 1"))
+    match.state.add_player(Player(id="player2", name="Player 2"))
+
+
+    #Start the game
+    await match.begin_game()
     
     # Get match state
     state = engine.get_match_state(match_id)
-    print(f"✅ Match state: {state['current_phase']} phase, turn {state['turn_number']}")
+    print(f"✅ Match state: phase {state['current_phase']}, turn {state['turn_number']}")
+
+    # Game engine should automatically advance to the draw phase, which triggers the draw action
     
     # Get available actions
     actions = engine.get_available_actions(match_id, "player1")
@@ -69,15 +81,23 @@ def main():
     for action in actions:
         print(f"   - {action['name']} ({action['id']})")
     
-    # Display turn structure
-    print("\n🔄 Turn Structure:")
-    for phase in ruleset.turn_structure.phases:
-        print(f"   Phase {phase.id}: {phase.name}")
-        for step in phase.steps:
-            mandatory = " (mandatory)" if step.mandatory else ""
-            print(f"     - Step {step.id}: {step.name}{mandatory}")
+    # Demonstrate object-based action queries
+    print("\n🎯 Object-Based Action Queries:")
+    
+    # Example: Query actions for a card in hand
+    print("\n📋 Actions for card in hand:")
+    card_actions = engine.get_actions_for_object(match_id, "player1", "card", "card_123")
+    if card_actions:
+        for action in card_actions:
+            print(f"   - {action['name']} (Mode: {action['interaction_mode']})")
+            if action['costs']:
+                print(f"     Costs: {action['costs']}")
+            if action['additional_targets']:
+                print(f"     Additional targets needed: {len(action['additional_targets'])}")
+    else:
+        print("🟥 No actions available for this card")
     
     print("\n🎉 Example completed successfully!")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

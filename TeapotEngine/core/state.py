@@ -7,7 +7,7 @@ from typing import Dict, Any, List, Optional, Set
 
 from ruleset.models.player_models import Player
 from ruleset.models.resource_models import GameResourceManager
-from .events import Event
+from .events import Event, PHASE_ENTERED, PHASE_EXITED
 
 
 @dataclass
@@ -15,8 +15,8 @@ class GameState:
     """Current state of the game derived from events"""
     match_id: str
     active_player: str
-    current_phase: str = "start"
-    current_step: str = "untap"
+    current_phase: int = 0
+    current_step: int = 0
     turn_number: int = 1
     
     # Player states - now using Player objects
@@ -50,13 +50,16 @@ class GameState:
         """Add a player to the game state"""
         self.players[player.id] = player
     
-    def get_player(self, player_id: str) -> Optional['Player']:
+    def get_player(self, player_id: str, caused_by: Dict[str, str]) -> Optional['Player']:
         """Get a player by ID"""
+        if player_id == "self":
+            return self.players.get(caused_by.get("object_id"))
         return self.players.get(player_id)
     
     def set_resource_manager(self, resource_manager: 'GameResourceManager') -> None:
         """Set the resource manager for this match"""
         self.resource_manager = resource_manager
+        
     
     def apply_event(self, event: Event) -> None:
         """Apply an event to the game state"""
@@ -66,6 +69,13 @@ class GameState:
         if event.type == "PhaseChanged":
             self.current_phase = event.payload.get("phase", self.current_phase)
             self.current_step = event.payload.get("step", self.current_step)
+        
+        elif event.type == PHASE_ENTERED:
+            self.current_phase = event.payload.get("phase_id", self.current_phase)
+        
+        elif event.type == PHASE_EXITED:
+            # Phase exit doesn't change current phase, but could trigger cleanup
+            pass
         
         elif event.type == "TurnChanged":
             self.turn_number = event.payload.get("turn_number", self.turn_number)

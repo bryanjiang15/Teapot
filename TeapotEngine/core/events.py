@@ -8,6 +8,21 @@ from enum import Enum
 import uuid
 from datetime import datetime
 
+# Core event type constants
+
+# Phase events
+PHASE_ENTERED = "PhaseEntered"
+PHASE_EXITED = "PhaseExited"
+
+# Action/Rule events
+ACTION_EXECUTED = "ActionExecuted"
+RULE_EXECUTED = "RuleExecuted"
+
+# State change events (emitted by rule effects)
+CARD_MOVED = "CardMoved"
+RESOURCE_CHANGED = "ResourceChanged"
+DAMAGE_DEALT = "DamageDealt"
+
 
 class EventStatus(Enum):
     PENDING = "pending"
@@ -24,7 +39,7 @@ class StackItemType(Enum):
 @dataclass
 class Event:
     """A domain occurrence in the game"""
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    id: int = 0  # Will be assigned by MatchActor
     type: str = ""
     payload: Dict[str, Any] = field(default_factory=dict)
     caused_by: Optional[str] = None
@@ -64,7 +79,7 @@ class Reaction:
     conditions: List[Dict[str, Any]] = field(default_factory=list)
     effects: List[Dict[str, Any]] = field(default_factory=list)
     timing: str = "post"  # "pre" or "post"
-    source_id: Optional[int] = None
+    caused_by: Optional[Dict[str, str]] = None  # {"object_type": str, "object_id": str}
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -73,7 +88,7 @@ class Reaction:
             "conditions": self.conditions,
             "effects": self.effects,
             "timing": self.timing,
-            "source_id": self.source_id
+            "caused_by": self.caused_by
         }
     
     @classmethod
@@ -84,7 +99,7 @@ class Reaction:
             conditions=data["conditions"],
             effects=data["effects"],
             timing=data["timing"],
-            source_id=data.get("source_id")
+            caused_by=data.get("caused_by")
         )
 
 

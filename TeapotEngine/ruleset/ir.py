@@ -4,10 +4,25 @@ Ruleset IR (Intermediate Representation) models
 
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
+from enum import Enum
 from pydantic import BaseModel, Field
 
 from ruleset.rulesetModels import ZoneVisibilityType
 from ruleset.models import ResourceDefinition
+
+
+class SelectableObjectType(Enum):
+    CARD = "card"
+    ZONE = "zone"
+    PLAYER = "player"
+    STACK_ABILITY = "stack_ability"
+
+class TargetDefinition(BaseModel):
+    """Definition of a target, can be groups/specific of cards, zones, phases, players, etc."""
+    description: str
+    type: SelectableObjectType
+    selector: Optional[Dict[str, Any]] = None
+    
 
 
 class StepDefinition(BaseModel):
@@ -33,7 +48,7 @@ class TurnStructure(BaseModel):
 
 
 class ActionDefinition(BaseModel):
-    """Definition of a player action"""
+    """Definition of a player action - This should define what a player can do in the game at a specific time"""
     id: int
     name: str
     description: Optional[str] = None
@@ -43,8 +58,27 @@ class ActionDefinition(BaseModel):
     preconditions: List[Dict[str, Any]] = Field(default_factory=list)
     costs: List[Dict[str, Any]] = Field(default_factory=list)
     targets: List[Dict[str, Any]] = Field(default_factory=list)
-    effects: List[Dict[str, Any]] = Field(default_factory=list)
+    
+    # What rules to execute when this action is taken
+    execute_rules: List[int] = Field(default_factory=list)
+    
+    # UI/interaction fields
     ui: Optional[Dict[str, Any]] = None
+    primary_target_type: Optional[SelectableObjectType] = None  # Type of the main target
+    primary_target_selector: Optional[Dict[str, Any]] = None  # How to identify primary target
+    interaction_mode: str = "click"  # "click", "drag", "multi_select", "button"
+    
+    # DEPRECATED: Keep for backward compatibility
+    effects: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class RuleDefinition(BaseModel):
+    """A rule defines what mechanically happens when executed"""
+    id: int
+    name: str  # e.g., "DrawCard", "DealDamage", "MoveCard"
+    description: Optional[str] = None
+    parameters: List[Dict[str, Any]] = Field(default_factory=list)
+    effects: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class TriggerDefinition(BaseModel):
@@ -52,9 +86,10 @@ class TriggerDefinition(BaseModel):
     id: int
     when: Dict[str, Any]
     conditions: List[Dict[str, Any]] = Field(default_factory=list)
-    effects: List[Dict[str, Any]] = Field(default_factory=list)
+    execute_rules: List[int] = Field(default_factory=list)  # Rule IDs to execute
     timing: str = "post"  # "pre", "post"
-    source_id: Optional[int] = None
+    triggerSource: Optional[TargetDefinition] = None
+    caused_by: Optional[str] = None
 
 
 class ZoneDefinition(BaseModel):
@@ -80,6 +115,7 @@ class RulesetIR(BaseModel):
     version: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
     turn_structure: TurnStructure
+    rules: List[RuleDefinition] = Field(default_factory=list)
     actions: List[ActionDefinition] = Field(default_factory=list)
     triggers: List[TriggerDefinition] = Field(default_factory=list)
     zones: List[ZoneDefinition] = Field(default_factory=list)
@@ -134,4 +170,11 @@ class RulesetIR(BaseModel):
         for resource in self.resources:
             if resource.id == resource_id:
                 return resource
+        return None
+    
+    def get_rule(self, rule_id: int) -> Optional[RuleDefinition]:
+        """Get a rule definition by ID"""
+        for rule in self.rules:
+            if rule.id == rule_id:
+                return rule
         return None

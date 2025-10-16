@@ -14,12 +14,12 @@ class GameEngine:
     def __init__(self):
         self.match_actors: Dict[str, MatchActor] = {}
     
-    def create_match(self, match_id: str, ruleset_ir: Dict[str, Any], seed: Optional[int] = None) -> MatchActor:
+    def create_match(self, match_id: str, ruleset_ir: Dict[str, Any], seed: Optional[int] = None, verbose: bool = False) -> MatchActor:
         """Create a new match actor"""
         if match_id in self.match_actors:
             raise ValueError(f"Match {match_id} already exists")
         
-        actor = MatchActor(match_id, ruleset_ir, seed)
+        actor = MatchActor(match_id, ruleset_ir, seed, verbose)
         self.match_actors[match_id] = actor
         return actor
     
@@ -61,3 +61,24 @@ class GameEngine:
             return None
         
         return actor.get_available_actions(player_id)
+    
+    def get_actions_for_object(
+        self, 
+        match_id: str, 
+        player_id: str, 
+        object_type: str,
+        object_id: str
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Get available actions for a selected object"""
+        actor = self.get_match(match_id)
+        if not actor:
+            return None
+        
+        # Convert string to enum
+        from ruleset.ir import SelectableObjectType
+        try:
+            object_type_enum = SelectableObjectType(object_type)
+        except ValueError:
+            return None
+        
+        return actor.get_actions_for_object(player_id, object_type_enum, object_id)
