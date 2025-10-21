@@ -4,6 +4,9 @@ Ruleset IR validation
 
 from typing import List, Dict, Any, Optional
 from .ir import RulesetIR, ActionDefinition, PhaseDefinition
+from .trigger_definition import TriggerDefinition
+from .components import ComponentDefinition, ComponentType
+from .component_types import GameComponentDefinition, PlayerComponentDefinition, CardComponentDefinition, ZoneComponentDefinition
 
 
 class ValidationError(Exception):
@@ -30,6 +33,9 @@ class RulesetValidator:
         self._validate_triggers(ruleset)
         self._validate_zones(ruleset)
         self._validate_keywords(ruleset)
+        
+        # Validate component-based structure
+        self._validate_components(ruleset)
         
         # Validate references
         self._validate_action_references(ruleset)
@@ -111,8 +117,8 @@ class RulesetValidator:
         if not trigger.when:
             self.errors.append(f"Trigger '{trigger.id}' must have 'when' condition")
         
-        if not trigger.effects:
-            self.warnings.append(f"Trigger '{trigger.id}' has no effects")
+        if not trigger.execute_rules:
+            self.warnings.append(f"Trigger '{trigger.id}' has no execute_rules")
         
         # Validate timing
         if trigger.timing not in ["pre", "post"]:
@@ -131,8 +137,13 @@ class RulesetValidator:
     
     def _validate_zone(self, zone) -> None:
         """Validate a single zone"""
-        if zone.zone_type not in ["private", "public", "shared"]:
-            self.errors.append(f"Zone '{zone.id}' has invalid type: {zone.zone_type}")
+        # Handle both string and enum values
+        zone_type = zone.zone_type
+        if hasattr(zone_type, 'value'):
+            zone_type = zone_type.value
+        
+        if zone_type not in ["private", "public", "shared"]:
+            self.errors.append(f"Zone '{zone.id}' has invalid type: {zone_type}")
     
     def _validate_keywords(self, ruleset: RulesetIR) -> None:
         """Validate keywords"""
@@ -151,6 +162,12 @@ class RulesetValidator:
         # This would check for references to actions, zones, etc.
         pass
     
+    def _validate_components(self, ruleset: RulesetIR) -> None:
+        """Validate component-based structure"""
+        # Validate all component definitions
+        for component in ruleset.component_definitions:
+            component.validate_component()
+
     def get_errors(self) -> List[str]:
         """Get validation errors"""
         return self.errors.copy()

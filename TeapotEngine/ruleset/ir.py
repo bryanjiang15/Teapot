@@ -9,6 +9,9 @@ from pydantic import BaseModel, Field
 
 from ruleset.rulesetModels import ZoneVisibilityType
 from ruleset.models import ResourceDefinition
+from .trigger_definition import TriggerDefinition
+from .components import ComponentDefinition, ComponentType
+from .component_types import GameComponentDefinition, PlayerComponentDefinition, CardComponentDefinition, ZoneComponentDefinition, CustomComponentDefinition
 
 
 class SelectableObjectType(Enum):
@@ -45,6 +48,7 @@ class TurnStructure(BaseModel):
     """Turn structure definition"""
     phases: List[PhaseDefinition]
     priority_windows: List[Dict[str, Any]] = Field(default_factory=list)
+    initial_phase_id: Optional[int] = None
 
 
 class ActionDefinition(BaseModel):
@@ -81,15 +85,7 @@ class RuleDefinition(BaseModel):
     effects: List[Dict[str, Any]] = Field(default_factory=list)
 
 
-class TriggerDefinition(BaseModel):
-    """Definition of an event trigger"""
-    id: int
-    when: Dict[str, Any]
-    conditions: List[Dict[str, Any]] = Field(default_factory=list)
-    execute_rules: List[int] = Field(default_factory=list)  # Rule IDs to execute
-    timing: str = "post"  # "pre", "post"
-    triggerSource: Optional[TargetDefinition] = None
-    caused_by: Optional[str] = None
+# TriggerDefinition moved to trigger_definition.py to avoid circular imports
 
 
 class ZoneDefinition(BaseModel):
@@ -114,28 +110,88 @@ class RulesetIR(BaseModel):
     """Complete ruleset intermediate representation"""
     version: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Component-based structure - all components unified in component_definitions
+    component_definitions: List[ComponentDefinition] = Field(default_factory=list)
+    
+    # Legacy fields for backward compatibility
     turn_structure: TurnStructure
     rules: List[RuleDefinition] = Field(default_factory=list)
     actions: List[ActionDefinition] = Field(default_factory=list)
-    triggers: List[TriggerDefinition] = Field(default_factory=list)
-    zones: List[ZoneDefinition] = Field(default_factory=list)
     keywords: List[KeywordDefinition] = Field(default_factory=list)
-    resources: List[ResourceDefinition] = Field(default_factory=list)
     constants: Dict[str, Any] = Field(default_factory=dict)
     
     class Config:
         json_encoders = {
             # Add any custom encoders if needed
         }
+        # Enable enum serialization
+        use_enum_values = True
     
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary"""
-        return self.dict()
+        """Convert to dictionary with proper enum serialization"""
+        # Get the base dictionary
+        data = self.dict()
+        
+        # Handle component_definitions specially to preserve specific fields
+        if 'component_definitions' in data and self.component_definitions:
+            serialized_components = []
+            for comp in self.component_definitions:  # Use the actual objects, not the serialized data
+                if hasattr(comp, 'to_dict'):
+                    serialized_components.append(comp.to_dict())
+                else:
+                    # Fallback for already serialized components
+                    serialized_components.append(comp)
+            data['component_definitions'] = serialized_components
+        return data
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "RulesetIR":
-        """Create from dictionary"""
+        """Create from dictionary with polymorphic component deserialization"""
+        # Handle component_definitions polymorphically
+        if 'component_definitions' in data:
+            component_definitions = []
+            for comp_data in data['component_definitions']:
+                # Deserialize based on component_type
+                component = cls._deserialize_component(comp_data)
+                component_definitions.append(component)
+            data['component_definitions'] = component_definitions
+        
         return cls(**data)
+    
+    @classmethod
+    def _deserialize_component(cls, comp_data: Dict[str, Any]) -> ComponentDefinition:
+        """Deserialize a component based on its type"""
+        from .component_types import (
+            GameComponentDefinition,
+            PlayerComponentDefinition, 
+            CardComponentDefinition,
+            ZoneComponentDefinition,
+            CustomComponentDefinition
+        )
+        
+        component_type = comp_data.get('component_type', ComponentType.CUSTOM)
+        
+        # Map component types to their classes
+        component_classes = {
+            ComponentType.GAME: GameComponentDefinition,
+            ComponentType.PLAYER: PlayerComponentDefinition,
+            ComponentType.CARD: CardComponentDefinition,
+            ComponentType.ZONE: ZoneComponentDefinition,
+            ComponentType.CUSTOM: CustomComponentDefinition
+        }
+        
+        # Handle both enum and string values
+        if isinstance(component_type, str):
+            try:
+                component_type = ComponentType(component_type)
+            except ValueError:
+                component_type = ComponentType.CUSTOM
+        
+        component_class = component_classes.get(component_type, CustomComponentDefinition)
+        
+        # Create the appropriate component type
+        return component_class(**comp_data)
     
     def get_action(self, action_id: int) -> Optional[ActionDefinition]:
         """Get an action definition by ID"""
@@ -178,3 +234,71 @@ class RulesetIR(BaseModel):
             if rule.id == rule_id:
                 return rule
         return None
+    
+    def get_all_triggers(self) -> List[TriggerDefinition]:
+        """Get all triggers from all components"""
+        all_triggers = []
+        
+        # Create a component registry for resolving references
+        from .components import ComponentRegistry
+        registry = ComponentRegistry()
+        for component in self.component_definitions:
+            registry.register(component)
+        
+        # Get triggers from all component definitions
+        for component in self.component_definitions:
+            all_triggers.extend(component.get_all_triggers(registry))
+        
+        return all_triggers
+    
+    def get_all_zones(self) -> List[ZoneDefinition]:
+        """Get all zones from all components"""
+        all_zones = []
+        
+        # Get zones from all component definitions
+        for component in self.component_definitions:
+            if hasattr(component, 'global_zones'):
+                all_zones.extend(component.global_zones)
+            elif hasattr(component, 'player_zones'):
+                all_zones.extend(component.player_zones)
+            elif hasattr(component, 'zones'):
+                all_zones.extend(component.zones)
+        
+        return all_zones
+    
+    def get_all_resources(self) -> List[ResourceDefinition]:
+        """Get all resources from all components"""
+        all_resources = []
+        
+        # Create a component registry for resolving references
+        from .components import ComponentRegistry
+        registry = ComponentRegistry()
+        for component in self.component_definitions:
+            registry.register(component)
+        
+        # Get resources from all component definitions
+        for component in self.component_definitions:
+            if hasattr(component, 'global_resources'):
+                all_resources.extend(component.global_resources)
+            elif hasattr(component, 'player_resources'):
+                all_resources.extend(component.player_resources)
+            else:
+                all_resources.extend(component.get_all_resources(registry))
+        
+        return all_resources
+    
+    def get_component_by_id(self, component_id: int) -> Optional[ComponentDefinition]:
+        """Get a component by ID from any component definition"""
+        # Check all component definitions
+        for component in self.component_definitions:
+            if component.id == component_id:
+                return component
+        
+        return None
+    
+    def get_components_by_type(self, component_type: ComponentType) -> List[ComponentDefinition]:
+        """Get all components of a specific type"""
+        return [
+            component for component in self.component_definitions
+            if getattr(component, 'component_type', ComponentType.CUSTOM) == component_type
+        ]

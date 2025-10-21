@@ -9,7 +9,9 @@ from core.stack import EventStack
 from core.rng import DeterministicRNG
 from .interpreter import RulesetInterpreter
 from .registry import EventRegistry, ReactionRegistry
-from ruleset.ir import SelectableObjectType
+from ruleset.ir import SelectableObjectType, RulesetIR
+from ruleset.component_types import GameComponentDefinition, PlayerComponentDefinition, CardComponentDefinition, ZoneComponentDefinition
+from ruleset.components import ComponentType
 
 
 class MatchActor:
@@ -21,7 +23,6 @@ class MatchActor:
         self.verbose = verbose
         
         # Convert dict to RulesetIR object
-        from ruleset.ir import RulesetIR
         ruleset_obj = RulesetIR.from_dict(ruleset_ir)
         self.interpreter = RulesetInterpreter(ruleset_obj)
         
@@ -30,9 +31,12 @@ class MatchActor:
         
         # Initialize resource manager
         from ruleset.models import GameResourceManager
-        resource_manager = GameResourceManager(ruleset_obj.resources)
+        resource_manager = GameResourceManager(ruleset_obj.get_all_resources())
         resource_manager.initialize_global_resources()
         self.state.set_resource_manager(resource_manager)
+        
+        # Initialize component instances
+        self._initialize_component_instances(ruleset_obj)
         
         # Initialize stack and RNG
         self.stack = EventStack()
@@ -51,24 +55,37 @@ class MatchActor:
         # Initialize match
         self._initialize_match()
     
+    def _initialize_component_instances(self, ruleset_obj: RulesetIR) -> None:
+        """Initialize component instances from unified component definitions"""
+        for component_data in ruleset_obj.component_definitions:
+            
+            component_type = component_data.component_type
+            
+            if component_type == ComponentType.GAME:
+                self.state.set_game_component(component_data)
+            
+            elif component_type == ComponentType.PLAYER:
+                # Create components for each player
+                for player_id in [1, 2]:  # Using integer IDs
+                    self.state.add_player_component(player_id, component_data)
+            
+            elif component_type == ComponentType.CARD:
+                # Card template is stored for later use when creating card components
+                self.state.add_card_component(component_data.id, component_data)
+            
+            elif component_type == ComponentType.ZONE:
+                # Use component ID as zone key
+                self.state.add_zone_component(component_data.id, component_data)
+            
+            else:
+                # Custom component
+                self.state.add_custom_component(component_data.id, component_data)
+    
     def _initialize_match(self) -> None:
         """Initialize the match with starting state"""
-        # Emit initial events
-        initial_events = [
-            Event(
-                type="MatchStarted",
-                payload={"match_id": self.match_id},
-                order=self.stack.get_next_order()
-            ),
-            Event(
-                type="PhaseChanged",
-                payload={"phase": 1, "step": 1},
-                order=self.stack.get_next_order()
-            )
-        ]
+        #Instead of building the trigger for chaing phase, just manually add the event to the stack
+        initial_phase_id = self.ruleset_ir["turn_structure"]["initial_phase_id"]
         
-        for event in initial_events:
-            self.state.apply_event(event)
     
     async def begin_game(self) -> None:
         """Begin the game"""

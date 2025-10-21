@@ -7,6 +7,8 @@ from typing import Dict, Any, List, Optional, Set
 
 from ruleset.models.player_models import Player
 from ruleset.models.resource_models import GameResourceManager
+from ruleset.components import ComponentDefinition
+from ruleset.component_types import GameComponentDefinition, PlayerComponentDefinition, CardComponentDefinition, ZoneComponentDefinition
 from .events import Event, PHASE_ENTERED, PHASE_EXITED
 
 
@@ -34,6 +36,13 @@ class GameState:
     # Event log for replay
     event_log: List[Event] = field(default_factory=list)
     
+    # Component definitions
+    game_component: Optional[GameComponentDefinition] = None
+    player_components: Dict[int, PlayerComponentDefinition] = field(default_factory=dict)
+    card_components: Dict[int, CardComponentDefinition] = field(default_factory=dict)
+    zone_components: Dict[int, ZoneComponentDefinition] = field(default_factory=dict)
+    custom_components: Dict[int, ComponentDefinition] = field(default_factory=dict)
+    
     def __post_init__(self):
         """Initialize default zones and player states"""
         if not self.zones:
@@ -59,6 +68,56 @@ class GameState:
     def set_resource_manager(self, resource_manager: 'GameResourceManager') -> None:
         """Set the resource manager for this match"""
         self.resource_manager = resource_manager
+    
+    def set_game_component(self, game_component: GameComponentDefinition) -> None:
+        """Set the game component definition"""
+        self.game_component = game_component
+    
+    def add_player_component(self, player_id: int, player_component: PlayerComponentDefinition) -> None:
+        """Add a player component definition"""
+        self.player_components[player_id] = player_component
+    
+    def get_player_component(self, player_id: int) -> Optional[PlayerComponentDefinition]:
+        """Get a player component definition"""
+        return self.player_components.get(player_id)
+    
+    def add_card_component(self, card_id: int, card_component: CardComponentDefinition) -> None:
+        """Add a card component definition"""
+        self.card_components[card_id] = card_component
+    
+    def get_card_component(self, card_id: int) -> Optional[CardComponentDefinition]:
+        """Get a card component definition"""
+        return self.card_components.get(card_id)
+    
+    def add_zone_component(self, zone_id: int, zone_component: ZoneComponentDefinition) -> None:
+        """Add a zone component definition"""
+        self.zone_components[zone_id] = zone_component
+    
+    def get_zone_component(self, zone_id: int) -> Optional[ZoneComponentDefinition]:
+        """Get a zone component definition"""
+        return self.zone_components.get(zone_id)
+    
+    def add_custom_component(self, component_id: int, component: ComponentDefinition) -> None:
+        """Add a custom component definition"""
+        self.custom_components[component_id] = component
+    
+    def get_custom_component(self, component_id: int) -> Optional[ComponentDefinition]:
+        """Get a custom component definition"""
+        return self.custom_components.get(component_id)
+    
+    def get_all_component_definitions(self) -> List[ComponentDefinition]:
+        """Get all component definitions"""
+        all_components = []
+        
+        if self.game_component:
+            all_components.append(self.game_component)
+        
+        all_components.extend(self.player_components.values())
+        all_components.extend(self.card_components.values())
+        all_components.extend(self.zone_components.values())
+        all_components.extend(self.custom_components.values())
+        
+        return all_components
         
     
     def apply_event(self, event: Event) -> None:

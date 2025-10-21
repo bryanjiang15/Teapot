@@ -24,27 +24,8 @@ async def main():
     ruleset = RulesetIR.from_dict(ruleset_data)
     print(f"✅ Created ruleset: {ruleset.metadata['name']}")
     print(f"   Description: {ruleset.metadata['description']}")
-    print(f"   Resources: {len(ruleset.resources)}")
-    print(f"   Zones: {len(ruleset.zones)}")
     print(f"   Actions: {len(ruleset.actions)}")
-    print(f"   Triggers: {len(ruleset.triggers)}")
     print(f"   Keywords: {len(ruleset.keywords)}")
-    
-    # Display resources
-    print("\n📊 Resources:")
-    for resource in ruleset.resources:
-        scope_info = f"({resource.scope.value})"
-        print(f"   - {resource.name}: {resource.description} {scope_info}")
-        print(f"     Type: {resource.resource_type.value}, Starting: {resource.starting_amount}")
-        if resource.max_per_turn:
-            print(f"     Max per turn: {resource.max_per_turn}")
-        if resource.regeneration_per_turn:
-            print(f"     Regeneration: {resource.regeneration_per_turn}/turn")
-    
-    # Display zones
-    print("\n🗂️  Zones:")
-    for zone in ruleset.zones:
-        print(f"   - {zone.name}: {zone.description} ({zone.zone_type.value})")
     
     # Display actions
     print("\n⚡ Actions:")

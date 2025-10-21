@@ -4,6 +4,7 @@ Ruleset IR interpreter for game logic
 
 from typing import Dict, Any, List, Optional
 from ruleset.ir import RulesetIR, ActionDefinition, PhaseDefinition, SelectableObjectType, RuleDefinition
+from ruleset.trigger_definition import TriggerDefinition
 from .state import GameState
 from .events import Event, Reaction, PHASE_ENTERED, PHASE_EXITED, ACTION_EXECUTED, RULE_EXECUTED, CARD_MOVED, RESOURCE_CHANGED, DAMAGE_DEALT
 
@@ -115,19 +116,20 @@ class RulesetInterpreter:
     def _build_trigger_index(self) -> None:
         """Build index of triggers by event type for efficient discovery"""
         self._trigger_index.clear()
+
+        # Get all triggers from component hierarchy
+        all_triggers = self.ruleset.get_all_triggers()
         
-        for trigger in self.ruleset.triggers:
+        for trigger in all_triggers:
             event_type = trigger.when.get("eventType")
             
             if event_type:
                 # Index by specific event type
-                if event_type not in self._trigger_index:
-                    self._trigger_index[event_type] = []
+                self._trigger_index.setdefault(event_type, [])
                 self._trigger_index[event_type].append(trigger)
             else:
                 # Wildcard trigger (matches any event) - store under special key
-                if "*" not in self._trigger_index:
-                    self._trigger_index["*"] = []
+                self._trigger_index.setdefault("*", [])
                 self._trigger_index["*"].append(trigger)
     
     def get_available_actions(self, game_state: GameState, player_id: str) -> List[Dict[str, Any]]:
@@ -397,56 +399,44 @@ class RulesetInterpreter:
         
         return []
     
-    def _evaluate_trigger_source(self, trigger_source, game_state: GameState, player_id: str) -> List[Dict[str, str]]:
-        """Evaluate a trigger source to get list of source objects with their types and IDs"""
-        if not trigger_source:
-            return []
+    def _determine_trigger_caused_by(self, trigger, event: Event, game_state: GameState) -> List[Dict[str, str]]:
+        """Determine caused_by objects based on trigger scope and component source"""
+        caused_by_objects = []
         
-        source_objects = []
+        # Get trigger scope
+        scope = getattr(trigger, 'scope', 'self')
         
-        if trigger_source.type.value == "card":
-            # Get cards based on selector
-            if trigger_source.selector:
-                card_ids = self._evaluate_selector(trigger_source.selector, game_state, player_id)
-                for card_id in card_ids:
-                    source_objects.append({"object_type": "card", "object_id": card_id})
+        if scope == "self":
+            # Trigger affects only the component that caused the event
+            if event.caused_by:
+                caused_by_objects.append({"object_type": "player", "object_id": event.caused_by})
             else:
-                # If no selector, get all cards in all zones
-                for zone_name in ["hand", "battlefield", "graveyard", "library"]:
-                    for player in ["player1", "player2"]:
-                        cards = game_state.get_player_zone(player, zone_name)
-                        for card_id in cards:
-                            source_objects.append({"object_type": "card", "object_id": card_id})
+                # Fallback to active player
+                caused_by_objects.append({"object_type": "player", "object_id": game_state.active_player})
         
-        elif trigger_source.type.value == "zone":
-            # Get zones based on selector
-            if trigger_source.selector:
-                zone_name = trigger_source.selector.get("zone")
-                if zone_name:
-                    source_objects.append({"object_type": "zone", "object_id": zone_name})
+        elif scope == "all":
+            # Trigger affects all players
+            caused_by_objects.append({"object_type": "player", "object_id": "player1"})
+            caused_by_objects.append({"object_type": "player", "object_id": "player2"})
+        
+        elif scope == "opponent":
+            # Trigger affects the opponent of the event causer
+            if event.caused_by:
+                opponent_id = "player2" if event.caused_by == "player1" else "player1"
+                caused_by_objects.append({"object_type": "player", "object_id": opponent_id})
             else:
-                # If no selector, get all zones
-                for zone_name in ["hand", "battlefield", "graveyard", "library"]:
-                    source_objects.append({"object_type": "zone", "object_id": zone_name})
+                # Fallback to opponent of active player
+                opponent_id = "player2" if game_state.active_player == "player1" else "player1"
+                caused_by_objects.append({"object_type": "player", "object_id": opponent_id})
         
-        elif trigger_source.type.value == "player":
-            # Get players based on selector
-            if trigger_source.selector:
-                controller = trigger_source.selector.get("controller", "all")
-                if controller == "self":
-                    source_objects.append({"object_type": "player", "object_id": player_id})
-                elif controller == "opponent":
-                    opponent_id = "player2" if player_id == "player1" else "player1"
-                    source_objects.append({"object_type": "player", "object_id": opponent_id})
-                elif controller == "all":
-                    source_objects.append({"object_type": "player", "object_id": "player1"})
-                    source_objects.append({"object_type": "player", "object_id": "player2"})
+        else:
+            # Default to self scope
+            if event.caused_by:
+                caused_by_objects.append({"object_type": "player", "object_id": event.caused_by})
             else:
-                # Default to all players
-                source_objects.append({"object_type": "player", "object_id": "player1"})
-                source_objects.append({"object_type": "player", "object_id": "player2"})
+                caused_by_objects.append({"object_type": "player", "object_id": game_state.active_player})
         
-        return source_objects
+        return caused_by_objects
     
     def discover_reactions(self, event: Event, game_state: GameState) -> List[Reaction]:
         """Find all triggers that match an event using indexed lookup"""
@@ -461,35 +451,22 @@ class RulesetInterpreter:
         # Filter candidates by conditions and filters
         for trigger in candidate_triggers:
             if self._trigger_matches(trigger, event, game_state):
-                # Check if trigger has a triggerSource
-                if trigger.triggerSource:
-                    # Evaluate trigger source to get list of source objects
-                    source_objects = self._evaluate_trigger_source(trigger.triggerSource, game_state, event.caused_by or "player1")
-                    
-                    # Create one reaction per source object
-                    for source_obj in source_objects:
-                        # Check conditions for this specific source object
-                        if self._trigger_conditions_met_for_source(trigger, event, game_state, source_obj):
-                            reaction = Reaction(
-                                id=trigger.id,
-                                when=trigger.when,
-                                conditions=trigger.conditions,
-                                effects=trigger.execute_rules,
-                                timing=trigger.timing,
-                                caused_by=source_obj
-                            )
-                            reactions.append(reaction)
-                else:
-                    # No triggerSource - create single reaction with generic caused_by
-                    reaction = Reaction(
-                        id=trigger.id,
-                        when=trigger.when,
-                        conditions=trigger.conditions,
-                        effects=trigger.execute_rules,
-                        timing=trigger.timing,
-                        caused_by=trigger.caused_by
-                    )
-                    reactions.append(reaction)
+                # Determine caused_by based on trigger scope and component source
+                caused_by_objects = self._determine_trigger_caused_by(trigger, event, game_state)
+                
+                # Create one reaction per caused_by object
+                for caused_by_obj in caused_by_objects:
+                    # Check conditions for this specific source object
+                    if self._trigger_conditions_met_for_source(trigger, event, game_state, caused_by_obj):
+                        reaction = Reaction(
+                            id=trigger.id,
+                            when=trigger.when,
+                            conditions=trigger.conditions,
+                            effects=trigger.execute_rules,
+                            timing=trigger.timing,
+                            caused_by=caused_by_obj
+                        )
+                        reactions.append(reaction)
         
         return reactions
     
