@@ -3,10 +3,12 @@ Ruleset IR interpreter for game logic
 """
 
 from typing import Dict, Any, List, Optional
-from ruleset.ir import RulesetIR, ActionDefinition, PhaseDefinition, SelectableObjectType, RuleDefinition
-from ruleset.trigger_definition import TriggerDefinition
+from ruleset.ir import RulesetIR
+from ruleset.rule_definitions import TriggerDefinition, ActionDefinition, PhaseDefinition, SelectableObjectType, RuleDefinition
 from .state import GameState
 from .events import Event, Reaction, PHASE_ENTERED, PHASE_EXITED, ACTION_EXECUTED, RULE_EXECUTED, CARD_MOVED, RESOURCE_CHANGED, DAMAGE_DEALT
+from .eventBus import EventBus
+from .component import Component
 
 
 class RuleExecutor:
@@ -92,12 +94,11 @@ class RulesetInterpreter:
         self._phase_cache: Dict[int, PhaseDefinition] = {}
         self._rule_cache: Dict[int, RuleDefinition] = {}
         
-        # NEW: Trigger index by event type for fast lookup
-        self._trigger_index: Dict[str, List] = {}
+        # Event bus for trigger management
+        self.event_bus = EventBus()
         
         # Build caches for fast lookup
         self._build_caches()
-        self._build_trigger_index()
         
         # Initialize rule executor
         self.rule_executor = RuleExecutor(ruleset_ir)
@@ -113,24 +114,24 @@ class RulesetInterpreter:
         for rule in self.ruleset.rules:
             self._rule_cache[rule.id] = rule
     
-    def _build_trigger_index(self) -> None:
-        """Build index of triggers by event type for efficient discovery"""
-        self._trigger_index.clear()
-
-        # Get all triggers from component hierarchy
-        all_triggers = self.ruleset.get_all_triggers()
+    def register_component_triggers(self, component: Component) -> List[int]:
+        """Register all triggers for a component instance"""
+        subscription_ids = []
         
-        for trigger in all_triggers:
+        for trigger in component.triggers:
             event_type = trigger.when.get("eventType")
-            
             if event_type:
-                # Index by specific event type
-                self._trigger_index.setdefault(event_type, [])
-                self._trigger_index[event_type].append(trigger)
-            else:
-                # Wildcard trigger (matches any event) - store under special key
-                self._trigger_index.setdefault("*", [])
-                self._trigger_index["*"].append(trigger)
+                subscription_id = self.event_bus.subscribe(
+                    event_type, trigger, component.id, component.metadata
+                )
+                subscription_ids.append(subscription_id)
+        
+        return subscription_ids
+    
+    def unregister_component_triggers(self, component_id: int) -> List[int]:
+        """Unregister all triggers for a component instance"""
+        return self.event_bus.unsubscribe_all_from_component(component_id)
+    
     
     def get_available_actions(self, game_state: GameState, player_id: str) -> List[Dict[str, Any]]:
         """Get available actions for a player given current game state"""
@@ -439,36 +440,9 @@ class RulesetInterpreter:
         return caused_by_objects
     
     def discover_reactions(self, event: Event, game_state: GameState) -> List[Reaction]:
-        """Find all triggers that match an event using indexed lookup"""
-        reactions = []
-        
-        # Get triggers indexed by this event type (O(1) lookup)
-        candidate_triggers = self._trigger_index.get(event.type, [])
-        
-        # Also check wildcard triggers
-        candidate_triggers.extend(self._trigger_index.get("*", []))
-        
-        # Filter candidates by conditions and filters
-        for trigger in candidate_triggers:
-            if self._trigger_matches(trigger, event, game_state):
-                # Determine caused_by based on trigger scope and component source
-                caused_by_objects = self._determine_trigger_caused_by(trigger, event, game_state)
-                
-                # Create one reaction per caused_by object
-                for caused_by_obj in caused_by_objects:
-                    # Check conditions for this specific source object
-                    if self._trigger_conditions_met_for_source(trigger, event, game_state, caused_by_obj):
-                        reaction = Reaction(
-                            id=trigger.id,
-                            when=trigger.when,
-                            conditions=trigger.conditions,
-                            effects=trigger.execute_rules,
-                            timing=trigger.timing,
-                            caused_by=caused_by_obj
-                        )
-                        reactions.append(reaction)
-        
-        return reactions
+        """Find all triggers that match an event using EventBus"""
+        return self.event_bus.dispatch(event, game_state)
+    
     
     def _trigger_matches(self, trigger, event: Event, game_state: GameState) -> bool:
         """Check if trigger matches event (filters and conditions only)"""

@@ -7,103 +7,10 @@ from typing import Dict, Any, List, Optional
 from enum import Enum
 from pydantic import BaseModel, Field
 
-from ruleset.rulesetModels import ZoneVisibilityType
 from ruleset.models import ResourceDefinition
-from .trigger_definition import TriggerDefinition
+from .rule_definitions import TriggerDefinition, ActionDefinition, RuleDefinition, PhaseDefinition, ZoneDefinition, KeywordDefinition, TurnStructure
 from .components import ComponentDefinition, ComponentType
-from .component_types import GameComponentDefinition, PlayerComponentDefinition, CardComponentDefinition, ZoneComponentDefinition, CustomComponentDefinition
-
-
-class SelectableObjectType(Enum):
-    CARD = "card"
-    ZONE = "zone"
-    PLAYER = "player"
-    STACK_ABILITY = "stack_ability"
-
-class TargetDefinition(BaseModel):
-    """Definition of a target, can be groups/specific of cards, zones, phases, players, etc."""
-    description: str
-    type: SelectableObjectType
-    selector: Optional[Dict[str, Any]] = None
-    
-
-
-class StepDefinition(BaseModel):
-    """Definition of a game step"""
-    id: int
-    name: str
-    mandatory: bool = False
-    description: Optional[str] = None
-
-
-class PhaseDefinition(BaseModel):
-    """Definition of a game phase"""
-    id: int
-    name: str
-    steps: List[StepDefinition]
-    description: Optional[str] = None
-
-
-class TurnStructure(BaseModel):
-    """Turn structure definition"""
-    phases: List[PhaseDefinition]
-    priority_windows: List[Dict[str, Any]] = Field(default_factory=list)
-    initial_phase_id: Optional[int] = None
-
-
-class ActionDefinition(BaseModel):
-    """Definition of a player action - This should define what a player can do in the game at a specific time"""
-    id: int
-    name: str
-    description: Optional[str] = None
-    timing: str = "stack"  # "stack", "instant"
-    phase_ids: List[int] = Field(default_factory=list)  # Phases where this action can be executed
-    zone_ids: List[int] = Field(default_factory=list)  # Zones where this action can be executed
-    preconditions: List[Dict[str, Any]] = Field(default_factory=list)
-    costs: List[Dict[str, Any]] = Field(default_factory=list)
-    targets: List[Dict[str, Any]] = Field(default_factory=list)
-    
-    # What rules to execute when this action is taken
-    execute_rules: List[int] = Field(default_factory=list)
-    
-    # UI/interaction fields
-    ui: Optional[Dict[str, Any]] = None
-    primary_target_type: Optional[SelectableObjectType] = None  # Type of the main target
-    primary_target_selector: Optional[Dict[str, Any]] = None  # How to identify primary target
-    interaction_mode: str = "click"  # "click", "drag", "multi_select", "button"
-    
-    # DEPRECATED: Keep for backward compatibility
-    effects: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-class RuleDefinition(BaseModel):
-    """A rule defines what mechanically happens when executed"""
-    id: int
-    name: str  # e.g., "DrawCard", "DealDamage", "MoveCard"
-    description: Optional[str] = None
-    parameters: List[Dict[str, Any]] = Field(default_factory=list)
-    effects: List[Dict[str, Any]] = Field(default_factory=list)
-
-
-# TriggerDefinition moved to trigger_definition.py to avoid circular imports
-
-
-class ZoneDefinition(BaseModel):
-    """Definition of a game zone"""
-    id: int
-    name: str
-    zone_type: ZoneVisibilityType = ZoneVisibilityType.PRIVATE
-    description: Optional[str] = None
-    properties: Dict[str, Any] = Field(default_factory=dict)
-
-
-class KeywordDefinition(BaseModel):
-    """Definition of a keyword ability"""
-    id: int
-    name: str
-    description: str
-    effects: List[Dict[str, Any]] = Field(default_factory=list)
-    grants: List[Dict[str, Any]] = Field(default_factory=list)
+from .component_types import GameComponentDefinition
 
 
 class RulesetIR(BaseModel):
@@ -111,7 +18,10 @@ class RulesetIR(BaseModel):
     version: str
     metadata: Dict[str, Any] = Field(default_factory=dict)
     
-    # Component-based structure - all components unified in component_definitions
+    # Game component - separate from other components
+    game_component: Optional[GameComponentDefinition] = None
+    
+    # Other components (player, card, zone, custom)
     component_definitions: List[ComponentDefinition] = Field(default_factory=list)
     
     # Legacy fields for backward compatibility
@@ -202,6 +112,8 @@ class RulesetIR(BaseModel):
     
     def get_phase(self, phase_id: int) -> Optional[PhaseDefinition]:
         """Get a phase definition by ID"""
+        #Get the turn structure from the component definitions
+
         for phase in self.turn_structure.phases:
             if phase.id == phase_id:
                 return phase
@@ -242,10 +154,20 @@ class RulesetIR(BaseModel):
         # Create a component registry for resolving references
         from .components import ComponentRegistry
         registry = ComponentRegistry()
+        
+        # Register game component if it exists
+        if self.game_component:
+            registry.register(self.game_component)
+        
+        # Register other components
         for component in self.component_definitions:
             registry.register(component)
         
-        # Get triggers from all component definitions
+        # Get triggers from game component
+        if self.game_component:
+            all_triggers.extend(self.game_component.get_all_triggers(registry))
+        
+        # Get triggers from other component definitions
         for component in self.component_definitions:
             all_triggers.extend(component.get_all_triggers(registry))
         
@@ -255,7 +177,11 @@ class RulesetIR(BaseModel):
         """Get all zones from all components"""
         all_zones = []
         
-        # Get zones from all component definitions
+        # Get zones from game component
+        if self.game_component and hasattr(self.game_component, 'global_zones'):
+            all_zones.extend(self.game_component.global_zones)
+        
+        # Get zones from other component definitions
         for component in self.component_definitions:
             if hasattr(component, 'global_zones'):
                 all_zones.extend(component.global_zones)
@@ -273,10 +199,20 @@ class RulesetIR(BaseModel):
         # Create a component registry for resolving references
         from .components import ComponentRegistry
         registry = ComponentRegistry()
+        
+        # Register game component if it exists
+        if self.game_component:
+            registry.register(self.game_component)
+        
+        # Register other components
         for component in self.component_definitions:
             registry.register(component)
         
-        # Get resources from all component definitions
+        # Get resources from game component
+        if self.game_component and hasattr(self.game_component, 'global_resources'):
+            all_resources.extend(self.game_component.global_resources)
+        
+        # Get resources from other component definitions
         for component in self.component_definitions:
             if hasattr(component, 'global_resources'):
                 all_resources.extend(component.global_resources)
@@ -289,7 +225,11 @@ class RulesetIR(BaseModel):
     
     def get_component_by_id(self, component_id: int) -> Optional[ComponentDefinition]:
         """Get a component by ID from any component definition"""
-        # Check all component definitions
+        # Check game component first
+        if self.game_component and self.game_component.id == component_id:
+            return self.game_component
+        
+        # Check other component definitions
         for component in self.component_definitions:
             if component.id == component_id:
                 return component
@@ -298,7 +238,16 @@ class RulesetIR(BaseModel):
     
     def get_components_by_type(self, component_type: ComponentType) -> List[ComponentDefinition]:
         """Get all components of a specific type"""
-        return [
+        components = []
+        
+        # Check game component
+        if self.game_component and getattr(self.game_component, 'component_type', ComponentType.CUSTOM) == component_type:
+            components.append(self.game_component)
+        
+        # Check other component definitions
+        components.extend([
             component for component in self.component_definitions
             if getattr(component, 'component_type', ComponentType.CUSTOM) == component_type
-        ]
+        ])
+        
+        return components

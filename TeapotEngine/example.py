@@ -53,6 +53,8 @@ async def main():
     # Get match state
     state = engine.get_match_state(match_id)
     print(f"✅ Match state: phase {state['current_phase']}, turn {state['turn_number']}")
+    print(f"✅ Player 1 hand: {state['zones']['hand'][2]}")
+    print(f"✅ Player 2 hand: {state['zones']['hand'][3]}")
 
     # Game engine should automatically advance to the draw phase, which triggers the draw action
     

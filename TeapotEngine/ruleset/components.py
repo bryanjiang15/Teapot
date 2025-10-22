@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Optional, Union, Type
 from enum import Enum
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field, create_model
-from .trigger_definition import TriggerDefinition
+from .rule_definitions import TriggerDefinition
 from .models import ResourceDefinition
 
 
@@ -55,7 +55,7 @@ class ComponentDefinition(BaseModel, ABC):
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with proper enum serialization"""
-        data = self.dict()
+        data = self.model_dump()
         # Convert enum to string for JSON serialization
         if 'component_type' in data:
             if hasattr(data['component_type'], 'value'):
@@ -139,7 +139,7 @@ class ComponentRegistry:
             self._type_index[component_type_key] = []
         self._type_index[component_type_key].append(component.id)
     
-    def get(self, component_id: int) -> Optional[ComponentDefinition]:
+    def get(self, component_id: str) -> Optional[ComponentDefinition]:
         """Get a component by ID"""
         return self._components.get(component_id)
     

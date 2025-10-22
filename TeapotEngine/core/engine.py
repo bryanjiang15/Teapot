@@ -75,7 +75,7 @@ class GameEngine:
             return None
         
         # Convert string to enum
-        from ruleset.ir import SelectableObjectType
+        from ruleset.rule_definitions import SelectableObjectType
         try:
             object_type_enum = SelectableObjectType(object_type)
         except ValueError:

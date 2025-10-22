@@ -14,87 +14,80 @@ def get_example_ruleset():
             "description": "A comprehensive trading card game ruleset"
         },
         
-        # Component-based structure - all components in unified list
+        # Game component - separate from other components
+        "game_component": {
+            "id": 1,
+            "name": "Base Game",
+            "description": "Core game rules and structure",
+            "component_type": "game",
+            "sub_component_ids": [6, 7],  # References to shared zones
+            "phases": [
+                {
+                    "id": 1,
+                    "name": "Draw Phase",
+                    "steps": [
+                        {"id": 1, "name": "Draw Step", "mandatory": True}
+                    ]
+                },
+                {
+                    "id": 2,
+                    "name": "Main Phase",
+                    "steps": [
+                        {"id": 2, "name": "Main Phase 1", "mandatory": True},
+                        {"id": 3, "name": "Main Phase 2", "mandatory": False}
+                    ]
+                },
+                {
+                    "id": 3,
+                    "name": "Combat Phase",
+                    "steps": [
+                        {"id": 4, "name": "Declare Attackers", "mandatory": False},
+                        {"id": 5, "name": "Declare Blockers", "mandatory": False},
+                        {"id": 6, "name": "Damage Step", "mandatory": False}
+                    ]
+                },
+                {
+                    "id": 4,
+                    "name": "End Phase",
+                    "steps": [
+                        {"id": 7, "name": "End Step", "mandatory": True}
+                    ]
+                }
+            ],
+            "global_zones": [
+                {
+                    "id": 2,
+                    "name": "Battlefield",
+                    "zone_type": "public",
+                    "description": "Cards in play"
+                },
+                {
+                    "id": 3,
+                    "name": "Graveyard",
+                    "zone_type": "public",
+                    "description": "Destroyed cards"
+                }
+            ],
+            "global_resources": [
+                {
+                    "id": 4,
+                    "name": "global_turn_counter",
+                    "description": "Global turn counter for the game",
+                    "scope": "global",
+                    "resource_type": "accumulating",
+                    "starting_amount": 0,
+                    "max_amount": None
+                }
+            ],
+            "triggers": [],
+            "max_players": 2,
+            "win_conditions": [
+                {"type": "life_zero", "description": "Opponent's life reaches 0"}
+            ]
+        },
+        
+        # Other components (player, card, zone, custom)
         "component_definitions": [
-            {
-                "id": 1,
-                "name": "Base Game",
-                "description": "Core game rules and structure",
-                "component_type": "game",
-                "sub_component_ids": [6, 7],  # References to shared zones
-                "phases": [
-                    {
-                        "id": 1,
-                        "name": "Draw Phase",
-                        "steps": [
-                            {"id": 1, "name": "Draw Step", "mandatory": True}
-                        ]
-                    },
-                    {
-                        "id": 2,
-                        "name": "Main Phase",
-                        "steps": [
-                            {"id": 2, "name": "Main Phase 1", "mandatory": True},
-                            {"id": 3, "name": "Main Phase 2", "mandatory": False}
-                        ]
-                    },
-                    {
-                        "id": 3,
-                        "name": "Combat Phase",
-                        "steps": [
-                            {"id": 4, "name": "Declare Attackers", "mandatory": False},
-                            {"id": 5, "name": "Declare Blockers", "mandatory": False},
-                            {"id": 6, "name": "Damage Step", "mandatory": False}
-                        ]
-                    },
-                    {
-                        "id": 4,
-                        "name": "End Phase",
-                        "steps": [
-                            {"id": 7, "name": "End Step", "mandatory": True}
-                        ]
-                    }
-                ],
-                "global_zones": [
-                    {
-                        "id": 2,
-                        "name": "Battlefield",
-                        "zone_type": "public",
-                        "description": "Cards in play"
-                    },
-                    {
-                        "id": 3,
-                        "name": "Graveyard",
-                        "zone_type": "public",
-                        "description": "Destroyed cards"
-                    }
-                ],
-                "global_resources": [
-                    {
-                        "id": 4,
-                        "name": "global_turn_counter",
-                        "description": "Global turn counter for the game",
-                        "scope": "global",
-                        "resource_type": "accumulating",
-                        "starting_amount": 0,
-                        "max_amount": None
-                    }
-                ],
-                "triggers": [
-                    {
-                        "id": 9,
-                        "when": {"eventType": "MatchStarted", "filters": {}},
-                        "conditions": [],
-                        "execute_rules": [1],
-                        "timing": "post",
-                        "scope": "all"
-                    }
-                ],
-                "max_players": 2,
-                "win_conditions": [
-                    {"type": "life_zero", "description": "Opponent's life reaches 0"}
-                ]
-            },
             {
                 "id": 2,
                 "name": "Base Player",
@@ -173,14 +166,6 @@ def get_example_ruleset():
                         "when": {"eventType": "PhaseEntered", "filters": {"phase_id": 2}},
                         "conditions": [],
                         "execute_rules": [2],  # Gain mana in main phase
-                        "timing": "post",
-                        "scope": "self"
-                    },
-                    {
-                        "id": 12,
-                        "when": {"eventType": "RuleExecuted", "filters": {"rule_id": 1}},
-                        "conditions": [{"op": "hand_size", "operator": ">", "value": 7}],
-                        "execute_rules": [],  # Could trigger discard
                         "timing": "post",
                         "scope": "self"
                     }
@@ -387,56 +372,6 @@ def get_example_ruleset():
                 "description": "Player's deck"
             }
         ],
-        "resources": [
-            {
-                "id": 1,
-                "name": "mana",
-                "description": "Primary resource for playing cards",
-                "scope": "player",
-                "resource_type": "consumable",
-                "starting_amount": 0,
-                "max_per_turn": 10,
-                "regeneration_per_turn": 1
-            },
-            {
-                "id": 2,
-                "name": "life",
-                "description": "Player's life total",
-                "scope": "player",
-                "resource_type": "tracked",
-                "starting_amount": 20,
-                "max_amount": None,
-                "min_amount": 0
-            },
-            {
-                "id": 3,
-                "name": "energy",
-                "description": "Secondary resource for special abilities",
-                "scope": "player",
-                "resource_type": "consumable",
-                "starting_amount": 0,
-                "max_per_turn": 5,
-                "regeneration_per_turn": 0
-            },
-            {
-                "id": 4,
-                "name": "global_turn_counter",
-                "description": "Global turn counter for the game",
-                "scope": "global",
-                "resource_type": "accumulating",
-                "starting_amount": 0,
-                "max_amount": None
-            },
-            {
-                "id": 5,
-                "name": "card_charges",
-                "description": "Charges on individual cards",
-                "scope": "object",
-                "resource_type": "consumable",
-                "starting_amount": 0,
-                "max_amount": 3
-            }
-        ],
         "actions": [
             {
                 "id": 1,
@@ -519,6 +454,36 @@ def get_example_ruleset():
                     "controller": "self"
                 },
                 "interaction_mode": "button"
+            }
+        ],
+        "rules": [
+            {
+                "id": 1,
+                "name": "DrawCard",
+                "description": "Draw one card from deck",
+                "parameters": [
+                    {"name": "count", "type": "integer", "default": 1},
+                    {"name": "player_id", "type": "string", "default": "self"}
+                ],
+                "effects": [
+                    {"op": "move_card", "from_zone": "deck", "to_zone": "hand", "count": 1, "player_id": "self"}
+                ]
+            },
+            {
+                "id": 2,
+                "name": "GainMana",
+                "description": "Gain 1 mana",
+                "effects": [
+                    {"op": "gain_resource", "resource": "mana", "amount": 1}
+                ]
+            },
+            {
+                "id": 3,
+                "name": "GainEnergy",
+                "description": "Gain 1 energy",
+                "effects": [
+                    {"op": "gain_resource", "resource": "energy", "amount": 1}
+                ]
             }
         ],
         "constants": {

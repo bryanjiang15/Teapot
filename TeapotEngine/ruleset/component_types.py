@@ -7,7 +7,7 @@ Specific component types for the component-based trigger system
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from .components import ComponentDefinition, ComponentType
-from .trigger_definition import TriggerDefinition
+from .rule_definitions import TriggerDefinition
 from .models import ResourceDefinition
 
 class GameComponentDefinition(ComponentDefinition):
