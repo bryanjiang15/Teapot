@@ -89,7 +89,7 @@ class EventBus:
     def dispatch(self, event: Event, game_state) -> List[Reaction]:
         """Find matching triggers and return Reactions"""
         # Get triggers subscribed to this event type
-        subscriptions = self._subscriptions.get(event.type, [])
+        subscriptions = self._subscriptions.get(event.type, []).copy()
         
         # Also check wildcard subscriptions if any
         subscriptions.extend(self._subscriptions.get("*", []))

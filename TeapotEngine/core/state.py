@@ -67,7 +67,7 @@ class GameState:
             for component in player_components:
                 if component.id == int(caused_by.get("object_id")):
                     return component
-        return self.players.get(player_id)
+        return self.component_manager.get_component(int(player_id))
     
     def set_resource_manager(self, resource_manager: 'GameResourceManager') -> None:
         """Set the resource manager for this match"""
