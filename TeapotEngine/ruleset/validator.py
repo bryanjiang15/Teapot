@@ -3,10 +3,8 @@ Ruleset IR validation
 """
 
 from typing import List, Dict, Any, Optional
-from .ir import RulesetIR, ActionDefinition, PhaseDefinition
-from .trigger_definition import TriggerDefinition
-from .components import ComponentDefinition, ComponentType
-from .component_types import GameComponentDefinition, PlayerComponentDefinition, CardComponentDefinition, ZoneComponentDefinition
+from .ir import RulesetIR
+from .rule_definitions import TriggerDefinition, ActionDefinition, PhaseDefinition
 
 
 class ValidationError(Exception):
