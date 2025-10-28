@@ -103,8 +103,11 @@ class MatchActor:
             order=self.stack.get_next_order()
         )
         await self._push_event_and_resolve(enter_phase_event)
-        
-        
+
+        if self.state.phase_manager.can_exit_phase(self.state):
+            if self.verbose:
+                print(f"🔍 No actions can be taken, advancing to next phase")
+            await self.advance_phase()
     
     async def process_action(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """Process a player action"""
@@ -124,6 +127,13 @@ class MatchActor:
                 caused_by=action["player_id"]
             )
             await self._push_event_and_resolve(action_event)
+
+            "Check post-resolution events"
+            "If there are no more actions that can be taken, advance to the next phase"
+            if self.state.phase_manager.can_exit_phase(self.state):
+                if self.verbose:
+                    print(f"🔍 No actions can be taken, advancing to next phase")
+                await self.advance_phase()
             
             return {"success": True, "events": [action_event.to_dict()]}
             
@@ -164,6 +174,11 @@ class MatchActor:
         else:
             # Turn ended, advance to next turn
             await self.end_turn()
+        
+        if self.state.phase_manager.can_exit_phase(self.state):
+            if self.verbose:
+                print(f"🔍 No actions can be taken, advancing to next phase")
+            await self.advance_phase()
     
     async def end_turn(self) -> None:
         """End the current turn and advance to the next turn"""

@@ -279,9 +279,9 @@ class GameState:
         }
     
     @classmethod
-    def from_events(cls, match_id: str, events: List[Event]) -> "GameState":
+    def from_events(cls, match_id: str, ruleset: RulesetIR, events: List[Event], player_ids: List[str] = None) -> "GameState":
         """Reconstruct state from event log"""
-        state = cls(match_id=match_id, active_player="player1")
+        state = cls.from_ruleset(match_id, ruleset, player_ids)
         
         for event in events:
             state.apply_event(event)
