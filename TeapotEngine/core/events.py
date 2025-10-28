@@ -13,6 +13,7 @@ from datetime import datetime
 # Phase events
 PHASE_ENTERED = "PhaseEntered"
 PHASE_EXITED = "PhaseExited"
+TURN_ENDED = "TurnEnded"
 
 # Action/Rule events
 ACTION_EXECUTED = "ActionExecuted"

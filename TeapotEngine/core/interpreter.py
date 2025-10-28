@@ -154,7 +154,7 @@ class RulesetInterpreter:
     def get_actions_for_object(
         self, 
         game_state: GameState, 
-        player_id: str, 
+        player_id: int, 
         object_type: SelectableObjectType,
         object_id: str
     ) -> List[Dict[str, Any]]:
@@ -186,7 +186,7 @@ class RulesetInterpreter:
         object_type: SelectableObjectType, 
         object_id: str, 
         game_state: GameState, 
-        player_id: str
+        player_id: int
     ) -> bool:
         """Check if the selected object matches the action's primary target requirements"""
         # If no primary target type specified, this action doesn't use object selection
@@ -214,7 +214,7 @@ class RulesetInterpreter:
         selector: Dict[str, Any], 
         object_id: str, 
         game_state: GameState, 
-        player_id: str
+        player_id: int
     ) -> bool:
         """Evaluate if the object matches the primary target selector"""
         # Check zone requirements
@@ -471,24 +471,6 @@ class RulesetInterpreter:
         
         return True
     
-    def get_next_phase(self, current_phase: int) -> Optional[int]:
-        """Get the next phase in the turn structure"""
-        phases = self.ruleset.turn_structure.phases
-        current_index = -1
-        
-        for i, phase in enumerate(phases):
-            if phase.id == current_phase:
-                current_index = i
-                break
-        
-        if current_index == -1:
-            return None
-        
-        next_index = current_index + 1
-        if next_index < len(phases):
-            return phases[next_index].id
-        
-        return None
     
     def get_phase_steps(self, phase_id: int) -> List[Dict[str, Any]]:
         """Get the steps for a phase"""

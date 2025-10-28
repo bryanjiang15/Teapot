@@ -4,7 +4,7 @@ Match Actor - Single-threaded game state manager
 
 from typing import Dict, Any, List, Optional, Callable
 from core.state import GameState
-from core.events import Event, Reaction, StackItem, PendingInput, EventStatus, StackItemType, PHASE_ENTERED, PHASE_EXITED, ACTION_EXECUTED, RULE_EXECUTED
+from core.events import Event, Reaction, StackItem, PendingInput, EventStatus, StackItemType, PHASE_ENTERED, PHASE_EXITED, ACTION_EXECUTED, RULE_EXECUTED, TURN_ENDED
 from core.stack import EventStack
 from core.rng import DeterministicRNG
 from .interpreter import RulesetInterpreter
@@ -12,7 +12,6 @@ from .registry import EventRegistry, ReactionRegistry
 from ruleset.ir import RulesetIR
 from ruleset.rule_definitions import SelectableObjectType
 from ruleset.components import ComponentType
-from ruleset.models import GameResourceManager
 
 
 class MatchActor:
@@ -27,13 +26,9 @@ class MatchActor:
         ruleset_obj = RulesetIR.from_dict(ruleset_ir)
         self.interpreter = RulesetInterpreter(ruleset_obj)
         
-        # Initialize game state
-        self.state = GameState(match_id=match_id, active_player="player1")
-        
-        # Initialize resource manager
-        resource_manager = GameResourceManager(ruleset_obj.get_all_resources())
-        resource_manager.initialize_global_resources()
-        self.state.set_resource_manager(resource_manager)
+        # Initialize game state with ruleset
+        player_ids = ["player1", "player2"]  # TODO: Make this configurable
+        self.state = GameState.from_ruleset(match_id, ruleset_obj, player_ids)
         
         # Initialize component instances
         self._initialize_component_instances(ruleset_obj)
@@ -92,38 +87,27 @@ class MatchActor:
     
     async def begin_game(self) -> None:
         """Begin the game"""
-        # Create and register initial event
+        # Create and push initial event
         start_match_event = Event(
             type="MatchStarted",
             payload={"match_id": self.match_id},
             order=self.stack.get_next_order()
         )
-        event_id = self.event_registry.register(start_match_event)
-        
-        # Push event ID to stack
-        self.stack.push(StackItem(
-            kind=StackItemType.EVENT,
-            ref_id=event_id,
-            created_at_order=self.stack.get_next_order()
-        ))
+        await self._push_event_and_resolve(start_match_event)
 
-        await self._resolve_stack()
-
-        #Enter initial phase
+        # Enter initial phase
+        initial_phase_id = self.state.phase_manager.current_phase_id
         enter_phase_event = Event(
             type=PHASE_ENTERED,
-            payload={"phase_id": self.ruleset_ir["turn_structure"]["initial_phase_id"]},
+            payload={"phase_id": initial_phase_id},
             order=self.stack.get_next_order()
         )
-        enter_phase_event_id = self.event_registry.register(enter_phase_event)
-        self.stack.push(StackItem(
-            kind=StackItemType.EVENT,
-            ref_id=enter_phase_event_id,
-            created_at_order=self.stack.get_next_order()
-        ))
-        await self._resolve_stack()
-        
-        
+        await self._push_event_and_resolve(enter_phase_event)
+
+        if self.state.phase_manager.can_exit_phase(self.state):
+            if self.verbose:
+                print(f"🔍 No actions can be taken, advancing to next phase")
+            await self.advance_phase()
     
     async def process_action(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """Process a player action"""
@@ -135,22 +119,21 @@ class MatchActor:
             # 2. Pay costs (if any)
             await self._pay_action_costs(action)
             
-            # 3. Create and register ActionExecuted event
+            # 3. Create and push ActionExecuted event
             action_event = Event(
                 type=ACTION_EXECUTED,
                 payload={"action_id": action["type"], "player_id": action["player_id"]},
                 order=self.stack.get_next_order(),
                 caused_by=action["player_id"]
             )
-            event_id = self.event_registry.register(action_event)
-            
-            # 4. Push to stack and resolve
-            self.stack.push(StackItem(
-                kind=StackItemType.EVENT,
-                ref_id=event_id,
-                created_at_order=self.stack.get_next_order()
-            ))
-            await self._resolve_stack()
+            await self._push_event_and_resolve(action_event)
+
+            "Check post-resolution events"
+            "If there are no more actions that can be taken, advance to the next phase"
+            if self.state.phase_manager.can_exit_phase(self.state):
+                if self.verbose:
+                    print(f"🔍 No actions can be taken, advancing to next phase")
+                await self.advance_phase()
             
             return {"success": True, "events": [action_event.to_dict()]}
             
@@ -162,44 +145,90 @@ class MatchActor:
         # This would use the ruleset interpreter to validate
         return self.interpreter.validate_action(action, self.state, action["player_id"])
     
-    async def advance_phase(self, next_phase_id: int) -> None:
+    async def advance_phase(self) -> None:
         """Advance to next phase"""
+        if not self.state.phase_manager:
+            return
+            
         current_phase = self.state.current_phase
         
-        # 1. Create and register PhaseExited event
+        # 1. Create and push PhaseExited event
         exit_event = Event(
             type=PHASE_EXITED,
             payload={"phase_id": current_phase},
             order=self.stack.get_next_order()
         )
-        exit_event_id = self.event_registry.register(exit_event)
+        await self._push_event_and_resolve(exit_event)
         
-        # 2. Create and register PhaseEntered event
-        enter_event = Event(
-            type=PHASE_ENTERED,
-            payload={"phase_id": next_phase_id},
+        # 2. Get next phase from phase manager
+        next_phase_id = self.state.phase_manager.advance_phase()
+        
+        if next_phase_id:
+            # 3. Create and push PhaseEntered event
+            enter_event = Event(
+                type=PHASE_ENTERED,
+                payload={"phase_id": next_phase_id},
+                order=self.stack.get_next_order()
+            )
+            await self._push_event_and_resolve(enter_event)
+        else:
+            # Turn ended, advance to next turn
+            await self.end_turn()
+        
+        if self.state.phase_manager.can_exit_phase(self.state):
+            if self.verbose:
+                print(f"🔍 No actions can be taken, advancing to next phase")
+            await self.advance_phase()
+    
+    async def end_turn(self) -> None:
+        """End the current turn and advance to the next turn"""
+        if not self.state.phase_manager:
+            return
+            
+        # 1. Emit TurnEnded event
+        turn_ended_event = Event(
+            type=TURN_ENDED,
+            payload={"turn_number": self.state.turn_number},
             order=self.stack.get_next_order()
         )
-        enter_event_id = self.event_registry.register(enter_event)
+        await self._push_event_and_resolve(turn_ended_event)
         
-        # 3. Push to stack and resolve
-        self.stack.push(StackItem(
-            kind=StackItemType.EVENT,
-            ref_id=exit_event_id,
-            created_at_order=self.stack.get_next_order()
-        ))
-        self.stack.push(StackItem(
-            kind=StackItemType.EVENT,
-            ref_id=enter_event_id,
-            created_at_order=self.stack.get_next_order()
-        ))
-        await self._resolve_stack()
+        # 2. Advance turn in phase manager
+        new_turn_number = self.state.phase_manager.advance_turn()
+        
+        # 3. Sync active player with phase manager
+        if self.state.phase_manager.active_player:
+            self.state.active_player = self.state.phase_manager.active_player
+        
+        # 4. Enter first phase of new turn
+        first_phase_id = self.state.phase_manager.current_phase_id
+        enter_phase_event = Event(
+            type=PHASE_ENTERED,
+            payload={"phase_id": first_phase_id},
+            order=self.stack.get_next_order()
+        )
+        await self._push_event_and_resolve(enter_phase_event)
     
     async def _pay_action_costs(self, action: Dict[str, Any]) -> None:
         """Pay costs for an action"""
         # This would be implemented to handle resource costs
         pass
     
+    async def _push_event_and_resolve(self, event: Event) -> None:
+        """Helper function to push an event to the stack and resolve the stack"""
+        # Register the event
+        event_id = self.event_registry.register(event)
+        
+        # Push event ID to stack
+        self.stack.push(StackItem(
+            kind=StackItemType.EVENT,
+            ref_id=event_id,
+            created_at_order=self.stack.get_next_order()
+        ))
+        
+        # Resolve the stack
+        await self._resolve_stack()
+
     async def _resolve_stack(self) -> None:
         """Resolve event stack"""
         while not self.stack.is_empty():
@@ -294,7 +323,7 @@ class MatchActor:
     
     def get_actions_for_object(
         self, 
-        player_id: str, 
+        player_id: int, 
         object_type: SelectableObjectType,
         object_id: str
     ) -> List[Dict[str, Any]]:

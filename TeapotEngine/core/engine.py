@@ -65,7 +65,7 @@ class GameEngine:
     def get_actions_for_object(
         self, 
         match_id: str, 
-        player_id: str, 
+        player_id: int, 
         object_type: str,
         object_id: str
     ) -> Optional[List[Dict[str, Any]]]:
