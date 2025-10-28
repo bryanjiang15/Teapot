@@ -42,10 +42,6 @@ async def main():
     match = engine.create_match(match_id, ruleset.model_dump(), verbose=True)
     print(f"✅ Created match: {match_id}")
 
-    #Add players
-    match.state.add_player(Player(id="player1", name="Player 1"))
-    match.state.add_player(Player(id="player2", name="Player 2"))
-
 
     #Start the game
     await match.begin_game()
@@ -55,7 +51,6 @@ async def main():
     print(f"✅ Match state: phase {state['current_phase']}, turn {state['turn_number']}")
     print(f"✅ Player 1 hand: {state['zones']['hand'][2]}")
     print(f"✅ Player 2 hand: {state['zones']['hand'][3]}")
-
     # Game engine should automatically advance to the draw phase, which triggers the draw action
     
     # Get available actions
@@ -69,7 +64,7 @@ async def main():
     
     # Example: Query actions for a card in hand
     print("\n📋 Actions for card in hand:")
-    card_actions = engine.get_actions_for_object(match_id, "player1", "card", "card_123")
+    card_actions = engine.get_actions_for_object(match_id, 2, "card", "card_123")
     if card_actions:
         for action in card_actions:
             print(f"   - {action['name']} (Mode: {action['interaction_mode']})")
@@ -79,6 +74,13 @@ async def main():
                 print(f"     Additional targets needed: {len(action['additional_targets'])}")
     else:
         print("🟥 No actions available for this card")
+    
+    # Demonstrate manual turn ending
+    print(f"\n🔄 Turn Management Demo:")
+    print(f"   Before end_turn: Turn {match.state.turn_number}, Phase {match.state.current_phase}")
+    await match.end_turn()
+    print(f"   After end_turn: Turn {match.state.turn_number}, Phase {match.state.current_phase}")
+    print(f"   Active player: {match.state.active_player}")
     
     print("\n🎉 Example completed successfully!")
 

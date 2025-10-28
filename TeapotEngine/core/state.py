@@ -8,9 +8,11 @@ from typing import Dict, Any, List, Optional, Set
 from ruleset.models.player_models import Player
 from ruleset.models.resource_models import GameResourceManager
 from ruleset.components import ComponentDefinition, ComponentType
-from ruleset.component_types import GameComponentDefinition, PlayerComponentDefinition, CardComponentDefinition, ZoneComponentDefinition
-from .events import Event, PHASE_ENTERED, PHASE_EXITED
+from ruleset.ir import RulesetIR
+from .component import Component
+from .events import Event, PHASE_ENTERED, PHASE_EXITED, TURN_ENDED
 from .component import ComponentManager
+from .phase_manager import PhaseManager, TurnType
 
 
 @dataclass
@@ -18,15 +20,11 @@ class GameState:
     """Current state of the game derived from events"""
     match_id: str
     active_player: str
-    current_phase: int = 0
-    current_step: int = 0
-    turn_number: int = 1
+    phase_manager: Optional[PhaseManager] = None
+    resource_manager: Optional['GameResourceManager'] = None
     
     # Player states - now using Player objects
-    players: Dict[str, 'Player'] = field(default_factory=dict)
-    
-    # Resource manager for this match
-    resource_manager: Optional['GameResourceManager'] = None
+    players: Dict[int, 'Component'] = field(default_factory=dict)
     
     # Zones and cards
     zones: Dict[str, Dict[str, Any]] = field(default_factory=dict)
@@ -56,9 +54,45 @@ class GameState:
                 "deck": {2: [], 3: []}
             }
     
-    def add_player(self, player: 'Player') -> None:
-        """Add a player to the game state"""
-        self.players[player.id] = player
+    @classmethod
+    def from_ruleset(cls, match_id: str, ruleset: RulesetIR, player_ids: List[str] = None) -> 'GameState':
+        """Create a GameState initialized with a ruleset
+        
+        Args:
+            match_id: Unique identifier for the match
+            ruleset: RulesetIR object containing game rules and structure
+            player_ids: List of player IDs, defaults to ["player1", "player2"]
+            
+        Returns:
+            Initialized GameState with phase manager and resource manager
+        """
+        if player_ids is None:
+            player_ids = ["player1", "player2"]
+        
+        # Create GameState instance
+        state = cls(match_id=match_id, active_player=player_ids[0])
+        
+        # Initialize resource manager
+        resource_manager = GameResourceManager(ruleset.get_all_resources())
+        resource_manager.initialize_global_resources()
+        state.resource_manager = resource_manager
+        
+        # Initialize phase manager
+        turn_type_str = getattr(ruleset.turn_structure, 'turn_type', 'single_player')
+        turn_type = TurnType.SINGLE_PLAYER if turn_type_str == "single_player" else TurnType.SYNCHRONOUS
+        
+        phase_manager = PhaseManager(
+            turn_structure=ruleset.turn_structure,
+            turn_type=turn_type,
+            player_ids=player_ids
+        )
+        state.phase_manager = phase_manager
+        
+        # Sync active_player with phase manager
+        if phase_manager.active_player:
+            state.active_player = phase_manager.active_player
+        
+        return state
     
     def get_player(self, player_id: str, caused_by: Dict[str, str]) -> Optional['Player']:
         """Get a player by ID"""
@@ -69,9 +103,6 @@ class GameState:
                     return component
         return self.component_manager.get_component(int(player_id))
     
-    def set_resource_manager(self, resource_manager: 'GameResourceManager') -> None:
-        """Set the resource manager for this match"""
-        self.resource_manager = resource_manager
     
     def create_component(self, definition: ComponentDefinition, zone: Optional[str] = None, 
                         controller_id: Optional[str] = None,
@@ -106,29 +137,47 @@ class GameState:
     def get_all_components(self):
         """Get all component instances"""
         return self.component_manager.get_all_components()
+    
+    @property
+    def current_phase(self) -> int:
+        """Get current phase ID from phase manager"""
+        return self.phase_manager.current_phase_id if self.phase_manager else 0
+    
+    @property
+    def turn_number(self) -> int:
+        """Get current turn number from phase manager"""
+        return self.phase_manager.turn_number if self.phase_manager else 1
+    
+    @property
+    def current_step(self) -> int:
+        """Get current step ID from phase manager"""
+        return self.phase_manager.current_step_id if self.phase_manager else 0
         
     
     def apply_event(self, event: Event) -> None:
         """Apply an event to the game state"""
         self.event_log.append(event)
         
-        # Apply event effects based on type
-        if event.type == "PhaseChanged":
-            self.current_phase = event.payload.get("phase", self.current_phase)
-            self.current_step = event.payload.get("step", self.current_step)
+        # Delegate phase/turn events to phase manager
+        if self.phase_manager:
+            if event.type == PHASE_ENTERED:
+                phase_id = event.payload.get("phase_id")
+                if phase_id:
+                    self.phase_manager.current_phase_id = phase_id
+                    self.phase_manager.current_step_id = 0  # Reset to first step
+            
+            elif event.type == PHASE_EXITED:
+                # Phase exit doesn't change current phase, but could trigger cleanup
+                pass
+            
+            elif event.type == TURN_ENDED:
+                # Turn ended - phase manager should already be updated
+                # Sync active_player with phase manager
+                if self.phase_manager.active_player:
+                    self.active_player = self.phase_manager.active_player
         
-        elif event.type == PHASE_ENTERED:
-            self.current_phase = event.payload.get("phase_id", self.current_phase)
-        
-        elif event.type == PHASE_EXITED:
-            # Phase exit doesn't change current phase, but could trigger cleanup
-            pass
-        
-        elif event.type == "TurnChanged":
-            self.turn_number = event.payload.get("turn_number", self.turn_number)
-            self.active_player = event.payload.get("active_player", self.active_player)
-        
-        elif event.type == "CardMoved":
+        # Handle other event types
+        if event.type == "CardMoved":
             self._move_card(
                 event.payload["card_id"],
                 event.payload["from_zone"],
@@ -220,10 +269,10 @@ class GameState:
         return {
             "match_id": self.match_id,
             "active_player": self.active_player,
-            "current_phase": self.current_phase,
+            "current_phase": self.phase_manager.get_current_phase_info().name,
             "current_step": self.current_step,
             "turn_number": self.turn_number,
-            "players": {pid: player.to_dict() for pid, player in self.players.items()},
+            "players": {pid: player.model_dump() for pid, player in self.players.items()},
             "zones": self.zones,
             "flags": self.flags,
             "event_count": len(self.event_log)

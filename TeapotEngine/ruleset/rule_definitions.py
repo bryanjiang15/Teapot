@@ -4,7 +4,7 @@ Trigger definition models
 
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
-from ruleset.rulesetModels import ZoneVisibilityType
+from ruleset.rulesetModels import PhaseExitType, ZoneVisibilityType
 from enum import Enum
 
 class SelectableObjectType(Enum):
@@ -35,6 +35,7 @@ class PhaseDefinition(BaseModel):
     name: str
     steps: List[StepDefinition]
     description: Optional[str] = None
+    exit_type: PhaseExitType = PhaseExitType.EXIT_ON_NO_ACTIONS
 
 
 class TurnStructure(BaseModel):

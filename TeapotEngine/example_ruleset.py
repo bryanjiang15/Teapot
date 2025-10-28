@@ -311,6 +311,7 @@ def get_example_ruleset():
         
         # Legacy fields for backward compatibility
         "turn_structure": {
+            "turn_type": "single_player",  # or "synchronous"
             "phases": [
                 {
                     "id": 1,
