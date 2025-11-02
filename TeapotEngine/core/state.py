@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Set
 
 from ruleset.models.player_models import Player
-from ruleset.models.resource_models import GameResourceManager
+from ruleset.models.resource_models import ResourceScope, ResourceDefinition
 from ruleset.components import ComponentDefinition, ComponentType
 from ruleset.ir import RulesetIR
 from .component import Component
@@ -21,7 +21,8 @@ class GameState:
     match_id: str
     active_player: str
     phase_manager: Optional[PhaseManager] = None
-    resource_manager: Optional['GameResourceManager'] = None
+    # Resource definition registry (by definition id)
+    resource_definitions: Dict[int, ResourceDefinition] = field(default_factory=dict)
     
     # Player states - now using Player objects
     players: Dict[int, 'Component'] = field(default_factory=dict)
@@ -40,6 +41,8 @@ class GameState:
     
     # Trigger metadata for future priority calculations
     trigger_metadata: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    # Global allocator for resource instance IDs
+    _next_resource_instance_id: int = 1
     # Example: {"card_123": {"entered_play_turn": 5, "controller": "player1"}}
     
     def __post_init__(self):
@@ -53,6 +56,12 @@ class GameState:
                 "exile": [],
                 "deck": {2: [], 3: []}
             }
+
+    def allocate_resource_instance_id(self) -> int:
+        """Allocate a unique, incrementing resource instance id."""
+        rid = self._next_resource_instance_id
+        self._next_resource_instance_id += 1
+        return rid
     
     @classmethod
     def from_ruleset(cls, match_id: str, ruleset: RulesetIR, player_ids: List[str] = None) -> 'GameState':
@@ -72,10 +81,8 @@ class GameState:
         # Create GameState instance
         state = cls(match_id=match_id, active_player=player_ids[0])
         
-        # Initialize resource manager
-        resource_manager = GameResourceManager(ruleset.get_all_resources())
-        resource_manager.initialize_global_resources()
-        state.resource_manager = resource_manager
+        # Load resource definitions into state registry
+        state.resource_definitions = {rd.id: rd for rd in ruleset.get_all_resources()}
         
         # Initialize phase manager
         turn_type_str = getattr(ruleset.turn_structure, 'turn_type', 'single_player')
@@ -96,19 +103,28 @@ class GameState:
     
     def get_player(self, player_id: str, caused_by: Dict[str, str]) -> Optional['Player']:
         """Get a player by ID"""
-        if player_id == "self":
-            player_components = self.component_manager.get_components_by_type(ComponentType.PLAYER)
-            for component in player_components:
-                if component.id == int(caused_by.get("object_id")):
-                    return component
-        return self.component_manager.get_component(int(player_id))
+        if player_id == "self" and caused_by:
+            return self.component_manager.get_component_by_type_and_id(ComponentType.PLAYER, int(caused_by.get("object_id"))) 
+        return self.component_manager.get_component_by_type_and_id(ComponentType.PLAYER, player_id)
     
     
     def create_component(self, definition: ComponentDefinition, zone: Optional[str] = None, 
                         controller_id: Optional[str] = None,
                         properties: Optional[Dict[str, Any]] = None):
-        """Create a new component instance from a definition"""
-        return self.component_manager.create_component(definition, zone, controller_id, properties)
+        """Create a new component instance from a definition and initialize its resources."""
+        component = self.component_manager.create_component(definition, zone, controller_id, properties)
+        # Initialize resources defined on this component definition
+        for res_def in getattr(definition, 'resources', []) or []:
+            # Attach GLOBAL resources to the Game component instance; others attach to this component
+            if getattr(res_def, 'scope', None) == ResourceScope.GLOBAL:
+                target_component = component if component.component_type == ComponentType.GAME else self.get_game_component_instance()
+                if target_component:
+                    instance_id = self.allocate_resource_instance_id()
+                    target_component.add_resource_instance(instance_id, res_def)
+            else:
+                instance_id = self.allocate_resource_instance_id()
+                component.add_resource_instance(instance_id, res_def)
+        return component
     
     def get_component(self, component_id: int):
         """Get a component instance by ID"""
@@ -121,6 +137,11 @@ class GameState:
     def get_components_by_type(self, component_type):
         """Get all component instances of a specific type"""
         return self.component_manager.get_components_by_type(component_type)
+
+    def get_game_component_instance(self) -> Optional[Component]:
+        """Get the single Game component instance, if any."""
+        comps = self.component_manager.get_components_by_type(ComponentType.GAME)
+        return comps[0] if comps else None
     
     def get_components_by_zone(self, zone: str):
         """Get all component instances in a specific zone"""
@@ -217,19 +238,77 @@ class GameState:
                 self.zones[to_zone].append(card_id)
     
     def _change_resource(self, player_id: str, resource_id: int, amount: int) -> None:
-        """Change a player's resource amount using the new resource system"""
-        player = self.get_player(player_id)
-        if not player or not self.resource_manager:
+        """Backward-compatible resource change routed to component-local resource storage.
+        Resolves the first matching resource instance on the target component by resource definition id.
+        """
+        target_component: Optional[Component] = None
+        # In legacy events, player_id may be an id or the string "self" handled by get_player
+        try:
+            target_component = self.get_player(player_id, caused_by={})  # type: ignore
+        except TypeError:
+            # Fallback to older signature
+            target_component = self.get_player(player_id)  # type: ignore
+        if not target_component:
             return
-        
-        resource_def = self.resource_manager.get_resource_definition(resource_id)
+
+        # Resolve the resource definition from global registry
+        resource_def = self.resource_definitions.get(resource_id)
         if not resource_def:
             return
-        
+
+        instance_ids = target_component.get_resource_instances(resource_def.id)
+        if not instance_ids:
+            return
+        instance_id = instance_ids[0]
+
         if amount > 0:
-            player.gain_resource(resource_id, amount, resource_def)
+            target_component.gain_resource(instance_id, amount, resource_def)
         else:
-            player.spend_resource(resource_id, abs(amount), resource_def)
+            target_component.spend_resource(instance_id, abs(amount), resource_def)
+
+    def find_resource_instance(self, component_id: int, resource_def_id: int) -> Optional[int]:
+        """Find a resource instance id on a component by resource definition id."""
+        comp = self.get_component(component_id)
+        if not comp:
+            return None
+        instances = comp.get_resource_instances(resource_def_id)
+        return instances[0] if instances else None
+
+    def gain_resource_instance(self, instance_id: int, amount: int) -> None:
+        """Gain resource by instance id after resolving owner component and definition."""
+        # Resolve owner component and definition; operate directly
+        owner = None
+        resource_id = None
+        for comp in self.get_all_components():
+            res = comp.get_resource_by_instance(instance_id)
+            if res:
+                owner = comp
+                resource_id = res.resource_id
+                break
+        if not owner or resource_id is None:
+            return
+        res_def = self.resource_definitions.get(resource_id)
+        if not res_def:
+            return
+        owner.gain_resource(instance_id, amount, res_def)
+
+    def spend_resource_instance(self, instance_id: int, amount: int) -> bool:
+        """Spend resource by instance id after resolving owner component and definition."""
+        # Resolve owner component and definition; operate directly
+        owner = None
+        resource_id = None
+        for comp in self.get_all_components():
+            res = comp.get_resource_by_instance(instance_id)
+            if res:
+                owner = comp
+                resource_id = res.resource_id
+                break
+        if not owner or resource_id is None:
+            return False
+        res_def = self.resource_definitions.get(resource_id)
+        if not res_def:
+            return False
+        return owner.spend_resource(instance_id, amount, res_def)
     
     def _deal_damage(self, target: str, amount: int, source: Optional[str] = None) -> None:
         """Deal damage to a target"""

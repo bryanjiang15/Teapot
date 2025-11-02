@@ -58,7 +58,7 @@ class RuleExecutor:
                 events.append(Event(
                     type=RESOURCE_CHANGED,
                     payload={
-                        "player_id": caused_by,
+                        "player_id": game_state.get_player(effect.get("player_id", "self"), caused_by).id,
                         "resource": effect.get("resource", "mana"),
                         "amount": effect.get("amount", 1)
                     }

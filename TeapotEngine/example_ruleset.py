@@ -21,6 +21,17 @@ def get_example_ruleset():
             "description": "Core game rules and structure",
             "component_type": "game",
             "sub_component_ids": [6, 7],  # References to shared zones
+            "resources": [
+                {
+                    "id": 4,
+                    "name": "global_turn_counter",
+                    "description": "Global turn counter for the game",
+                    "scope": "global",
+                    "resource_type": "accumulating",
+                    "starting_amount": 0,
+                    "max_amount": None
+                }
+            ],
             "phases": [
                 {
                     "id": 1,
@@ -68,18 +79,17 @@ def get_example_ruleset():
                     "description": "Destroyed cards"
                 }
             ],
-            "global_resources": [
+            
+            "triggers": [
                 {
-                    "id": 4,
-                    "name": "global_turn_counter",
-                    "description": "Global turn counter for the game",
-                    "scope": "global",
-                    "resource_type": "accumulating",
-                    "starting_amount": 0,
-                    "max_amount": None
-                }
+                    "id": 1,
+                    "when": {"eventType": "TurnEnded", "filters": {"turn_number": 6}},
+                    "conditions": [],
+                    "execute_rules": [0],  # End the game
+                    "timing": "post",
+                    "scope": "self"
+                },
             ],
-            "triggers": [],
             "max_players": 2,
             "win_conditions": [
                 {"type": "life_zero", "description": "Opponent's life reaches 0"}
@@ -94,24 +104,7 @@ def get_example_ruleset():
                 "description": "Player component template",
                 "component_type": "player",
                 "sub_component_ids": [8, 9],  # References to player zones
-                "starting_hand_size": 7,
-                "max_hand_size": 7,
-                "starting_life": 20,
-                "player_zones": [
-                    {
-                        "id": 1,
-                        "name": "Hand",
-                        "zone_type": "private",
-                        "description": "Player's hand of cards"
-                    },
-                    {
-                        "id": 4,
-                        "name": "Library",
-                        "zone_type": "private",
-                        "description": "Player's deck"
-                    }
-                ],
-                "player_resources": [
+                "resources": [
                     {
                         "id": 1,
                         "name": "mana",
@@ -150,6 +143,23 @@ def get_example_ruleset():
                         "resource_type": "consumable",
                         "starting_amount": 0,
                         "max_amount": 3
+                    }
+                ],
+                "starting_hand_size": 7,
+                "max_hand_size": 7,
+                "starting_life": 20,
+                "player_zones": [
+                    {
+                        "id": 1,
+                        "name": "Hand",
+                        "zone_type": "private",
+                        "description": "Player's hand of cards"
+                    },
+                    {
+                        "id": 4,
+                        "name": "Library",
+                        "zone_type": "private",
+                        "description": "Player's deck"
                     }
                 ],
                 "triggers": [
@@ -458,6 +468,14 @@ def get_example_ruleset():
             }
         ],
         "rules": [
+            {
+                "id": 0,
+                "name": "EndGame",
+                "description": "End the game",
+                "effects": [
+                    {"op": "end_game"}
+                ]
+            },
             {
                 "id": 1,
                 "name": "DrawCard",

@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional, Union
 from enum import Enum
 from ruleset.rule_definitions import TriggerDefinition
 from ruleset.components import ComponentDefinition, ComponentType
+from ruleset.models.resource_models import Resource, ResourceDefinition
 
 
 class ComponentStatus(Enum):
@@ -37,6 +38,10 @@ class Component:
     
     # Metadata for trigger activation
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+    # Resource storage per component instance
+    resources_by_instance_id: Dict[int, Resource] = field(default_factory=dict)
+    resource_instance_ids_by_def_id: Dict[int, List[int]] = field(default_factory=dict)
     
     def __post_init__(self):
         """Initialize component after creation"""
@@ -47,6 +52,41 @@ class Component:
     def add_trigger(self, trigger: TriggerDefinition) -> None:
         """Add a trigger to this component instance"""
         self.triggers.append(trigger)
+
+    # Resource APIs
+    def add_resource_instance(self, instance_id: int, resource_def: ResourceDefinition, starting_amount: Optional[Union[int, float]] = None) -> int:
+        """Attach a new resource instance to this component and index it by its definition id."""
+        if instance_id in self.resources_by_instance_id:
+            return instance_id
+        resource = Resource(
+            resource_id=resource_def.id,
+            current_amount=resource_def.starting_amount if starting_amount is None else starting_amount
+        )
+        self.resources_by_instance_id[instance_id] = resource
+        self.resource_instance_ids_by_def_id.setdefault(resource_def.id, []).append(instance_id)
+        return instance_id
+
+    def get_resource_instances(self, resource_def_id: int) -> List[int]:
+        """Get all resource instance ids for a given resource definition id on this component."""
+        return list(self.resource_instance_ids_by_def_id.get(resource_def_id, []))
+
+    def get_resource_by_instance(self, instance_id: int) -> Optional[Resource]:
+        """Get a resource instance by its instance id."""
+        return self.resources_by_instance_id.get(instance_id)
+
+    def gain_resource(self, instance_id: int, amount: Union[int, float], resource_def: ResourceDefinition) -> None:
+        """Increase a resource instance's amount."""
+        resource = self.get_resource_by_instance(instance_id)
+        if not resource:
+            return
+        resource.gain(amount, resource_def)
+
+    def spend_resource(self, instance_id: int, amount: Union[int, float], resource_def: ResourceDefinition) -> bool:
+        """Attempt to spend from a resource instance."""
+        resource = self.get_resource_by_instance(instance_id)
+        if not resource:
+            return False
+        return resource.spend(amount, resource_def)
     
     def remove_trigger(self, trigger_id: int) -> bool:
         """Remove a trigger by ID"""
@@ -143,6 +183,14 @@ class ComponentManager:
         """Get all components of a specific type"""
         component_ids = self._components_by_type.get(component_type, [])
         return [self._components[cid] for cid in component_ids if cid in self._components]
+    
+    def get_component_by_type_and_id(self, component_type: ComponentType, id: int) -> Optional[Component]:
+        """Get a component by type and ID"""
+        component_ids = self._components_by_type.get(component_type, [])
+        for cid in component_ids:
+            if cid == id:
+                return self._components[cid]
+        return None
     
     def get_components_by_zone(self, zone: str) -> List[Component]:
         """Get all components in a specific zone"""

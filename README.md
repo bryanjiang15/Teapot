@@ -11,7 +11,8 @@ Teapot is an end-to-end platform for building and playing custom trading card ga
 ## Key Technical Components
 - **Reusable ruleset-driven engine** supporting custom actions, stack-based resolution, and JSON IR-defined mechanics that can be embedded by both client and server services. An example of the stack-based resolution system on a custom created ruleset: ![Rule Execution Workflow](docs/images/rule-execution.png) 
 - **LLM-assisted creator tooling** featuring multi-agent pipelines to efficiently generate game rules and components and tool-validated outputs to transform text descriptions into game-ready data models.【F:CreatorAPI/agent_architecture.txt†L5-L168】
-- **React-based developer workspace** ![Workspace Interface](docs/images/workspace.png) 
+- **React-based developer workspace** Handles the game creation process. Here is an draft of how the interface will look like
+![Main Interface](docs/images/react-app.png) ![Workspace Interface](docs/images/workspace.png) 
 
 ## Workflow
 1. User creates a project in the react workspace, developing the rules and components that makes up the game: Players, Cards, Tokens, Zones, Phases, Resources, etc.

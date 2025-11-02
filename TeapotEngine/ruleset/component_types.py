@@ -18,7 +18,6 @@ class GameComponentDefinition(ComponentDefinition):
     # Game-specific properties
     phases: List[Dict[str, Any]] = Field(default_factory=list)
     global_zones: List[Dict[str, Any]] = Field(default_factory=list)
-    global_resources: List[ResourceDefinition] = Field(default_factory=list)
     
     # Game rules
     max_players: int = 2
@@ -48,7 +47,6 @@ class GameComponentDefinition(ComponentDefinition):
         return {
             "phases": self.phases,
             "global_zones": self.global_zones,
-            "global_resources": [r.dict() for r in self.global_resources],
             "max_players": self.max_players,
             "win_conditions": self.win_conditions,
             "turn_structure": self.turn_structure
@@ -82,9 +80,8 @@ class PlayerComponentDefinition(ComponentDefinition):
     max_hand_size: int = 7
     starting_life: int = 20
     
-    # Player zones and resources
+    # Player zones
     player_zones: List[Dict[str, Any]] = Field(default_factory=list)
-    player_resources: List[ResourceDefinition] = Field(default_factory=list)
     
     def __init__(self, **data):
         super().__init__(**data)
@@ -97,21 +94,13 @@ class PlayerComponentDefinition(ComponentDefinition):
                 return zone
         return None
     
-    def get_player_resource(self, resource_id: int) -> Optional[ResourceDefinition]:
-        """Get a player resource definition by ID"""
-        for resource in self.player_resources:
-            if resource.id == resource_id:
-                return resource
-        return None
-    
     def get_component_specific_data(self) -> Dict[str, Any]:
         """Get player-specific data"""
         return {
             "starting_hand_size": self.starting_hand_size,
             "max_hand_size": self.max_hand_size,
             "starting_life": self.starting_life,
-            "player_zones": self.player_zones,
-            "player_resources": [r.dict() for r in self.player_resources]
+            "player_zones": self.player_zones
         }
     
     def validate_component(self) -> bool:

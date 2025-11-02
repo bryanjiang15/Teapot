@@ -7,8 +7,7 @@ from .resource_models import (
     ResourceScope,
     ResourceType,
     ResourceDefinition,
-    PlayerResource,
-    GameResourceManager,
+    Resource,
 )
 
 # Player models
@@ -19,8 +18,7 @@ __all__ = [
     "ResourceScope",
     "ResourceType", 
     "ResourceDefinition",
-    "PlayerResource",
-    "GameResourceManager",
+    "Resource",
     # Player models
     "Player"
 ]

@@ -84,6 +84,7 @@ class TriggerDefinition(BaseModel):
     when: Dict[str, Any]
     conditions: List[Dict[str, Any]] = Field(default_factory=list)
     execute_rules: List[int] = Field(default_factory=list)  # Rule IDs to execute
+    parameters: List[Dict[str, Any]] = Field(default_factory=list) # Parameters for the rules to execute
     timing: str = "post"  # "pre", "post"
     caused_by: Optional[str] = None  # Represents the component that caused the trigger
     

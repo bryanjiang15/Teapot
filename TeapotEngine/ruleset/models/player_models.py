@@ -5,14 +5,14 @@ Player-related models for TeapotEngine
 from typing import Dict, Any, Optional, Union
 from pydantic import BaseModel, Field
 
-from .resource_models import PlayerResource, ResourceDefinition
+from .resource_models import Resource, ResourceDefinition
 
 
 class Player(BaseModel):
     """Represents a game player"""
     id: str
     name: str
-    resources: Dict[int, PlayerResource] = Field(default_factory=dict)
+    resources: Dict[int, Resource] = Field(default_factory=dict)
     properties: Dict[str, Any] = Field(default_factory=dict)
     
     def __init__(self, **data):
@@ -24,12 +24,12 @@ class Player(BaseModel):
     def add_resource(self, resource_def: ResourceDefinition) -> None:
         """Add a resource to this player"""
         if resource_def.id not in self.resources:
-            self.resources[resource_def.id] = PlayerResource(
+            self.resources[resource_def.id] = Resource(
                 resource_id=resource_def.id,
                 current_amount=resource_def.starting_amount
             )
     
-    def get_resource(self, resource_id: int) -> Optional[PlayerResource]:
+    def get_resource(self, resource_id: int) -> Optional[Resource]:
         """Get a player's resource by ID"""
         return self.resources.get(resource_id)
     

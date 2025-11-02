@@ -196,30 +196,8 @@ class RulesetIR(BaseModel):
         """Get all resources from all components"""
         all_resources = []
         
-        # Create a component registry for resolving references
-        from .components import ComponentRegistry
-        registry = ComponentRegistry()
-        
-        # Register game component if it exists
-        if self.game_component:
-            registry.register(self.game_component)
-        
-        # Register other components
         for component in self.component_definitions:
-            registry.register(component)
-        
-        # Get resources from game component
-        if self.game_component and hasattr(self.game_component, 'global_resources'):
-            all_resources.extend(self.game_component.global_resources)
-        
-        # Get resources from other component definitions
-        for component in self.component_definitions:
-            if hasattr(component, 'global_resources'):
-                all_resources.extend(component.global_resources)
-            elif hasattr(component, 'player_resources'):
-                all_resources.extend(component.player_resources)
-            else:
-                all_resources.extend(component.get_all_resources(registry))
+            all_resources.extend(component.resources)
         
         return all_resources
     
