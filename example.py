@@ -7,10 +7,10 @@ import sys
 import os
 import asyncio
 
-from core.state import Player
-from core.engine import GameEngine
-from ruleset.ir import RulesetIR
-from example_ruleset import get_example_ruleset
+from TeapotEngine.core.state import Player
+from TeapotEngine.core.engine import GameEngine
+from TeapotEngine.ruleset.ir import RulesetIR
+from TeapotEngine.example_ruleset import get_example_ruleset
 
 async def main():
     """Example usage"""

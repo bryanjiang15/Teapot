@@ -13,25 +13,8 @@ def get_example_ruleset():
             "author": "Teapot Team",
             "description": "A comprehensive trading card game ruleset"
         },
-        
-        # Game component - separate from other components
-        "game_component": {
-            "id": 1,
-            "name": "Base Game",
-            "description": "Core game rules and structure",
-            "component_type": "game",
-            "sub_component_ids": [6, 7],  # References to shared zones
-            "resources": [
-                {
-                    "id": 4,
-                    "name": "global_turn_counter",
-                    "description": "Global turn counter for the game",
-                    "scope": "global",
-                    "resource_type": "accumulating",
-                    "starting_amount": 0,
-                    "max_amount": None
-                }
-            ],
+
+        "turn_structure": {
             "phases": [
                 {
                     "id": 1,
@@ -63,6 +46,27 @@ def get_example_ruleset():
                     "steps": [
                         {"id": 7, "name": "End Step", "mandatory": True}
                     ]
+                }
+            ],
+            "initial_phase_id": 1,
+            "max_turns_per_player": 2
+        },
+        # Game component - separate from other components
+        "game_component": {
+            "id": 1,
+            "name": "Base Game",
+            "description": "Core game rules and structure",
+            "component_type": "game",
+            "sub_component_ids": [6, 7],  # References to shared zones
+            "resources": [
+                {
+                    "id": 4,
+                    "name": "global_turn_counter",
+                    "description": "Global turn counter for the game",
+                    "scope": "global",
+                    "resource_type": "accumulating",
+                    "starting_amount": 0,
+                    "max_amount": None
                 }
             ],
             "global_zones": [

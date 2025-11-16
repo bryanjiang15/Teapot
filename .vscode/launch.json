@@ -9,7 +9,7 @@
             "name": "Python Debugger: Example",
             "type": "debugpy",
             "request": "launch",
-            "program": "TeapotEngine/example.py",
+            "program": "example.py",
             "console": "integratedTerminal"
         }
     ]

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 from .events import Event, Reaction
 from .component import Component
-from ruleset.rule_definitions import TriggerDefinition
+from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TriggerDefinition
 
 
 @dataclass
@@ -126,7 +126,9 @@ class EventBus:
         # Check zone-based activation
         if "zones" in trigger.active_while:
             required_zones = trigger.active_while["zones"]
-            if component.zone not in required_zones:
+            # Note: This assumes required_zones contains zone component IDs
+            # TODO: replace with expression evaluation
+            if component.zone_component_id not in required_zones:
                 return False
         
         # Check phase-based activation

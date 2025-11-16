@@ -5,8 +5,8 @@ Base component definition classes for the component-based trigger system
 from typing import Dict, Any, List, Optional, Union, Type
 from enum import Enum
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, Field, create_model
-from .rule_definitions import TriggerDefinition
+from pydantic import BaseModel, Field, create_model, ConfigDict
+from .ruleDefinitions.rule_definitions import TriggerDefinition
 from .models import ResourceDefinition
 
 
@@ -46,12 +46,10 @@ class ComponentDefinition(BaseModel, ABC):
         """Validate component-specific rules that subclasses must implement"""
         pass
     
-    class Config:
-        json_encoders = {
-            # Add any custom encoders if needed
-        }
+    model_config = ConfigDict(
         # Enable polymorphic serialization
-        use_enum_values = True
+        use_enum_values=True
+    )
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with proper enum serialization"""

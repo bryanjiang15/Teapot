@@ -5,9 +5,9 @@ Component system for game objects
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Union
 from enum import Enum
-from ruleset.rule_definitions import TriggerDefinition
-from ruleset.components import ComponentDefinition, ComponentType
-from ruleset.models.resource_models import Resource, ResourceDefinition
+from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TriggerDefinition
+from TeapotEngine.ruleset.componentDefinition import ComponentDefinition, ComponentType
+from TeapotEngine.ruleset.models.resource_models import Resource, ResourceDefinition
 
 
 class ComponentStatus(Enum):
@@ -30,8 +30,8 @@ class Component:
     status: ComponentStatus = ComponentStatus.ACTIVE
     
     # Location information
-    zone: Optional[str] = None
-    controller_id: Optional[str] = None
+    zone_component_id: Optional[int] = None
+    controller_component_id: Optional[int] = None
     
     # Triggers from the definition (copied at creation)
     triggers: List[TriggerDefinition] = field(default_factory=list)
@@ -88,32 +88,17 @@ class Component:
             return False
         return resource.spend(amount, resource_def)
     
-    def remove_trigger(self, trigger_id: int) -> bool:
-        """Remove a trigger by ID"""
-        for i, trigger in enumerate(self.triggers):
-            if trigger.id == trigger_id:
-                self.triggers.pop(i)
-                return True
-        return False
-    
-    def get_trigger(self, trigger_id: int) -> Optional[TriggerDefinition]:
-        """Get a trigger by ID"""
-        for trigger in self.triggers:
-            if trigger.id == trigger_id:
-                return trigger
-        return None
-    
     def is_active(self) -> bool:
         """Check if component is active"""
         return self.status == ComponentStatus.ACTIVE
     
-    def set_zone(self, zone: str) -> None:
-        """Set the zone this component is in"""
-        self.zone = zone
+    def set_zone(self, zone_component_id: Optional[int]) -> None:
+        """Set the zone component this component is in"""
+        self.zone_component_id = zone_component_id
     
-    def set_controller(self, controller_id: str) -> None:
-        """Set the controller of this component"""
-        self.controller_id = controller_id
+    def set_controller(self, controller_component_id: Optional[int]) -> None:
+        """Set the controller component of this component"""
+        self.controller_component_id = controller_component_id
     
     def update_metadata(self, key: str, value: Any) -> None:
         """Update component metadata"""
@@ -131,12 +116,12 @@ class ComponentManager:
         self._components: Dict[int, Component] = {}
         self._next_component_id: int = 1
         self._components_by_type: Dict[ComponentType, List[int]] = {}
-        self._components_by_zone: Dict[str, List[int]] = {}
-        self._components_by_controller: Dict[str, List[int]] = {}
+        self._components_by_zone: Dict[int, List[int]] = {}
+        self._components_by_controller: Dict[int, List[int]] = {}
     
     def create_component(self, definition: ComponentDefinition, 
-                        zone: Optional[str] = None, 
-                        controller_id: Optional[str] = None,
+                        zone_component_id: Optional[int] = None, 
+                        controller_component_id: Optional[int] = None,
                         properties: Optional[Dict[str, Any]] = None) -> Component:
         """Create a new component instance from a definition"""
         component_id = self._next_component_id
@@ -149,8 +134,8 @@ class ComponentManager:
             name=definition.name,
             component_type=definition.component_type,
             properties=properties or {},
-            zone=zone,
-            controller_id=controller_id,
+            zone_component_id=zone_component_id,
+            controller_component_id=controller_component_id,
             triggers=definition.triggers.copy()  # Copy triggers from definition
         )
         
@@ -192,35 +177,49 @@ class ComponentManager:
                 return self._components[cid]
         return None
     
-    def get_components_by_zone(self, zone: str) -> List[Component]:
-        """Get all components in a specific zone"""
-        component_ids = self._components_by_zone.get(zone, [])
+    def get_components_by_zone(self, zone_component_id: int) -> List[Component]:
+        """Get all components in a specific zone component"""
+        component_ids = self._components_by_zone.get(zone_component_id, [])
         return [self._components[cid] for cid in component_ids if cid in self._components]
     
-    def get_components_by_controller(self, controller_id: str) -> List[Component]:
-        """Get all components controlled by a specific player"""
-        component_ids = self._components_by_controller.get(controller_id, [])
+    def get_components_by_controller(self, controller_component_id: int) -> List[Component]:
+        """Get all components controlled by a specific controller component"""
+        component_ids = self._components_by_controller.get(controller_component_id, [])
         return [self._components[cid] for cid in component_ids if cid in self._components]
     
-    def move_component(self, component_id: int, new_zone: str, new_controller: Optional[str] = None) -> bool:
+    def move_component(self, component_id: int, new_zone_component_id: Optional[int] = None, new_controller_component_id: Optional[int] = None) -> bool:
         """Move a component to a new zone and/or controller"""
         component = self.get_component(component_id)
         if not component:
             return False
         
         # Update component
-        old_zone = component.zone
-        component.set_zone(new_zone)
-        if new_controller:
-            component.set_controller(new_controller)
+        old_zone_component_id = component.zone_component_id
+        if new_zone_component_id is not None:
+            component.set_zone(new_zone_component_id)
+        if new_controller_component_id is not None:
+            component.set_controller(new_controller_component_id)
         
         # Update indices
-        if old_zone:
-            self._components_by_zone[old_zone] = [
-                cid for cid in self._components_by_zone.get(old_zone, []) if cid != component_id
-            ]
+        if old_zone_component_id is not None:
+            if old_zone_component_id in self._components_by_zone:
+                self._components_by_zone[old_zone_component_id] = [
+                    cid for cid in self._components_by_zone[old_zone_component_id] if cid != component_id
+                ]
         
-        self._components_by_zone.setdefault(new_zone, []).append(component_id)
+        if new_zone_component_id is not None:
+            self._components_by_zone.setdefault(new_zone_component_id, []).append(component_id)
+        
+        # Update controller indices
+        old_controller_component_id = component.controller_component_id
+        if old_controller_component_id is not None and old_controller_component_id != new_controller_component_id:
+            if old_controller_component_id in self._components_by_controller:
+                self._components_by_controller[old_controller_component_id] = [
+                    cid for cid in self._components_by_controller[old_controller_component_id] if cid != component_id
+                ]
+        
+        if new_controller_component_id is not None:
+            self._components_by_controller.setdefault(new_controller_component_id, []).append(component_id)
         
         return True
     
@@ -232,16 +231,16 @@ class ComponentManager:
         self._components_by_type[component.component_type].append(component.id)
         
         # Index by zone
-        if component.zone:
-            if component.zone not in self._components_by_zone:
-                self._components_by_zone[component.zone] = []
-            self._components_by_zone[component.zone].append(component.id)
+        if component.zone_component_id is not None:
+            if component.zone_component_id not in self._components_by_zone:
+                self._components_by_zone[component.zone_component_id] = []
+            self._components_by_zone[component.zone_component_id].append(component.id)
         
         # Index by controller
-        if component.controller_id:
-            if component.controller_id not in self._components_by_controller:
-                self._components_by_controller[component.controller_id] = []
-            self._components_by_controller[component.controller_id].append(component.id)
+        if component.controller_component_id is not None:
+            if component.controller_component_id not in self._components_by_controller:
+                self._components_by_controller[component.controller_component_id] = []
+            self._components_by_controller[component.controller_component_id].append(component.id)
     
     def _unindex_component(self, component: Component) -> None:
         """Remove component from all indices"""
@@ -252,15 +251,15 @@ class ComponentManager:
             ]
         
         # Remove from zone index
-        if component.zone and component.zone in self._components_by_zone:
-            self._components_by_zone[component.zone] = [
-                cid for cid in self._components_by_zone[component.zone] if cid != component.id
+        if component.zone_component_id is not None and component.zone_component_id in self._components_by_zone:
+            self._components_by_zone[component.zone_component_id] = [
+                cid for cid in self._components_by_zone[component.zone_component_id] if cid != component.id
             ]
         
         # Remove from controller index
-        if component.controller_id and component.controller_id in self._components_by_controller:
-            self._components_by_controller[component.controller_id] = [
-                cid for cid in self._components_by_controller[component.controller_id] if cid != component.id
+        if component.controller_component_id is not None and component.controller_component_id in self._components_by_controller:
+            self._components_by_controller[component.controller_component_id] = [
+                cid for cid in self._components_by_controller[component.controller_component_id] if cid != component.id
             ]
     
     def get_all_components(self) -> List[Component]:

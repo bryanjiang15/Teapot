@@ -6,9 +6,7 @@ Specific component types for the component-based trigger system
 
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
-from .components import ComponentDefinition, ComponentType
-from .rule_definitions import TriggerDefinition
-from .models import ResourceDefinition
+from .componentDefinition import ComponentDefinition, ComponentType
 
 class GameComponentDefinition(ComponentDefinition):
     """Game-level component that defines the base game rules and structure"""
@@ -22,7 +20,6 @@ class GameComponentDefinition(ComponentDefinition):
     # Game rules
     max_players: int = 2
     win_conditions: List[Dict[str, Any]] = Field(default_factory=list)
-    turn_structure: Optional[Dict[str, Any]] = None
     
     def __init__(self, **data):
         super().__init__(**data)
@@ -49,7 +46,6 @@ class GameComponentDefinition(ComponentDefinition):
             "global_zones": self.global_zones,
             "max_players": self.max_players,
             "win_conditions": self.win_conditions,
-            "turn_structure": self.turn_structure
         }
     
     def validate_component(self) -> bool:

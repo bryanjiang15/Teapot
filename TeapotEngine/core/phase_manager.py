@@ -5,7 +5,7 @@ Turn/Phase Manager for game state
 from typing import List, Optional, Dict, Any
 from enum import Enum
 from dataclasses import dataclass
-from ruleset.rule_definitions import TurnStructure, PhaseDefinition
+from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TurnStructure, PhaseDefinition
 
 
 class TurnType(Enum):
@@ -45,6 +45,8 @@ class PhaseManager:
         # Set initial active player
         if not self.active_player and self.player_ids:
             self.active_player = self.player_ids[0]
+        
+        self.max_turns_per_player = self.turn_structure.max_turns_per_player
     
     def advance_phase(self) -> Optional[int]:
         """Advance to the next phase in the turn structure
@@ -100,6 +102,13 @@ class PhaseManager:
         except ValueError:
             # Current player not found, use first player
             self.active_player = self.player_ids[0]
+    
+    def game_over(self) -> bool:
+        """Check if the game is over"""
+        if not self.max_turns_per_player:
+            return False
+
+        return self.turn_number > self.max_turns_per_player
     
     def get_next_phase(self) -> Optional[int]:
         """Get the next phase ID without advancing state

@@ -3,10 +3,12 @@ Ruleset IR interpreter for game logic
 """
 
 from typing import Dict, Any, List, Optional
-from ruleset.ir import RulesetIR
-from ruleset.rule_definitions import TriggerDefinition, ActionDefinition, PhaseDefinition, SelectableObjectType, RuleDefinition
+from TeapotEngine.ruleset.ir import RulesetIR
+from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import ActionDefinition, PhaseDefinition, SelectableObjectType, RuleDefinition
+from TeapotEngine.ruleset.expression_model import EvalContext, Predicate, Selector
+from TeapotEngine.ruleset.system_data.system_events import *
 from .state import GameState
-from .events import Event, Reaction, PHASE_ENTERED, PHASE_EXITED, ACTION_EXECUTED, RULE_EXECUTED, CARD_MOVED, RESOURCE_CHANGED, DAMAGE_DEALT
+from .events import Event, Reaction
 from .eventBus import EventBus
 from .component import Component
 
@@ -132,6 +134,16 @@ class RulesetInterpreter:
         """Unregister all triggers for a component instance"""
         return self.event_bus.unsubscribe_all_from_component(component_id)
     
+    def register_system_triggers(self) -> List[int]:
+        """Register system triggers"""
+        subscription_ids = []
+        for trigger in self.ruleset.system_triggers:
+            subscription_id = self.event_bus.subscribe(
+                trigger.when.get("eventType"), trigger, component.id, component.metadata
+            )
+            subscription_ids.append(subscription_id)
+        return subscription_ids
+    
     
     def get_available_actions(self, game_state: GameState, player_id: str) -> List[Dict[str, Any]]:
         """Get available actions for a player given current game state"""
@@ -211,52 +223,69 @@ class RulesetInterpreter:
     
     def _evaluate_primary_target_selector(
         self, 
-        selector: Dict[str, Any], 
+        selector: Selector, 
         object_id: str, 
         game_state: GameState, 
-        player_id: int
+        player_id: str
     ) -> bool:
         """Evaluate if the object matches the primary target selector"""
-        # Check zone requirements
-        if "zone" in selector:
-            object_location = game_state.get_card_location(object_id)
-            if not object_location or object_location[0] != selector["zone"]:
-                return False
+        # Get the player component for context
+        player_component = game_state.get_player(player_id)
+        if not player_component:
+            return False
         
-        # Check controller requirements
-        if "controller" in selector:
-            if selector["controller"] == "self":
-                # Check if object is controlled by the player
-                object_location = game_state.get_card_location(object_id)
-                if not object_location or object_location[1] != player_id:
-                    return False
-            elif selector["controller"] == "opponent":
-                # Check if object is controlled by opponent
-                opponent_id = "player2" if player_id == "player1" else "player1"
-                object_location = game_state.get_card_location(object_id)
-                if not object_location or object_location[1] != opponent_id:
-                    return False
+        # Get the object component
+        try:
+            object_component = game_state.get_component(int(object_id))
+        except (ValueError, TypeError):
+            return False
         
-        # Add more selector conditions as needed
-        return True
+        if not object_component:
+            return False
+        
+        # Create evaluation context with the object as source
+        ctx = EvalContext(
+            source=object_component,
+            event=None,
+            targets=(),
+            game=game_state,
+            phase=str(game_state.current_phase),
+            turn=game_state.turn_number
+        )
+        
+        # Evaluate selector and check if object_id is in the results
+        matching_components = selector.evaluate(ctx)
+        return any(str(c.id) == object_id for c in matching_components)
     
     def _get_additional_targets(self, action: ActionDefinition, game_state: GameState, player_id: str) -> List[Dict[str, Any]]:
         """Get additional targets needed beyond the primary target"""
         additional_targets = []
         
+        player_component = game_state.get_player(player_id)
+        if not player_component:
+            return additional_targets
+        
+        ctx = EvalContext(
+            source=player_component,
+            event=None,
+            targets=(),
+            game=game_state,
+            phase=str(game_state.current_phase),
+            turn=game_state.turn_number
+        )
+        
         for target in action.targets:
-            target_id = target.get("id")
-            selector = target.get("selector", {})
-            
-            # Evaluate selector to get valid targets
-            valid_targets = self._evaluate_selector(selector, game_state, player_id)
+            # Evaluate selector to get valid components
+            components = target.selector.evaluate(ctx)
+            # Convert components to component IDs (strings)
+            valid_targets = [str(c.id) for c in components][:target.count]
             
             additional_targets.append({
-                "id": target_id,
-                "name": target.get("name", f"Target {target_id}"),
-                "target_type": target.get("target_type", "card"),
-                "count": target.get("count", 1),
-                "selector": selector,
+                "id": target.id,
+                "name": target.name or f"Target {target.id}",
+                "target_type": target.target_type,
+                "count": target.count,
+                "selector": target.selector,
                 "valid_targets": valid_targets
             })
         
@@ -283,10 +312,13 @@ class RulesetInterpreter:
         
         # Look for zone targets that could be drag destinations
         for target in action.targets:
-            if target.get("target_type") == "zone":
-                zone_name = target.get("selector", {}).get("zone")
-                if zone_name:
-                    drag_targets.append(zone_name)
+            if target.target_type == "zone":
+                # For zone selectors, we'd need to extract zone name from the selector
+                # This is a simplified check - you may need to enhance this based on
+                # how zone selectors are structured in your expression system
+                # TODO: fix with better implementation
+                if hasattr(target.selector, 'name') and target.selector.kind == "sel.zone":
+                    drag_targets.append(target.selector.name)
         
         return drag_targets
     
@@ -297,53 +329,29 @@ class RulesetInterpreter:
         if action.phase_ids and current_phase not in action.phase_ids:
             return False
 
-        # Check preconditions
+        # Check preconditions using expression evaluation
+        player_component = game_state.get_player(player_id)
+        if not player_component:
+            return False
+        
+        ctx = EvalContext(
+            source=player_component,
+            event=None,
+            targets=(),
+            game=game_state,
+            phase=str(game_state.current_phase),
+            turn=game_state.turn_number
+        )
+        
         for precondition in action.preconditions:
-            if not self._evaluate_condition(precondition, game_state, player_id):
+            if not precondition.evaluate(ctx):
                 return False
         
         return True
     
-    def _evaluate_condition(self, condition: Dict[str, Any], game_state: GameState, player_id: str) -> bool:
-        """Evaluate a single condition"""
-        op = condition.get("op")
-        
-        if op == "has_resource":
-            resource = condition.get("resource")
-            amount = condition.get("atLeast", 0)
-            player = game_state.get_player(player_id)
-            if not player:
-                return False
-            
-            # Get resource manager to find resource by name
-            if game_state.resource_manager:
-                for resource_def in game_state.resource_manager.resource_definitions.values():
-                    if resource_def.name == resource:
-                        player_resource = player.get_resource(resource_def.id)
-                        if player_resource and player_resource.current_amount >= amount:
-                            return True
-            return False
-        
-        elif op == "in_zone":
-            zone = condition.get("zone")
-            # Check if player has cards in the specified zone
-            return len(game_state.get_player_zone(player_id, zone)) > 0
-        
-        elif op == "phase_allows":
-            required_phase = condition.get("phase")
-            return game_state.current_phase == required_phase
-        
-        elif op == "can_attack":
-            # Check if player has untapped creatures that can attack
-            battlefield = game_state.get_player_zone(player_id, "battlefield")
-            return len(battlefield) > 0  # Simplified check
-        
-        elif op == "not_tapped":
-            # Check if the target is not tapped
-            return True  # Simplified check
-        
-        # Add more condition types as needed
-        return True
+    def _evaluate_condition(self, condition: Predicate, ctx: EvalContext) -> bool:
+        """Evaluate a predicate condition using expression evaluation"""
+        return condition.evaluate(ctx)
     
     def _evaluate_costs(self, costs: List[Dict[str, Any]], game_state: GameState, player_id: str) -> Dict[str, Any]:
         """Evaluate the costs of an action"""
@@ -362,43 +370,40 @@ class RulesetInterpreter:
         
         return total_costs
     
-    def _get_target_options(self, targets: List[Dict[str, Any]], game_state: GameState, player_id: str) -> Dict[str, Any]:
+    def _get_target_options(self, targets: List, game_state: GameState, player_id: str) -> Dict[str, Any]:
         """Get available target options for an action"""
         target_options = {}
         
+        player_component = game_state.get_player(player_id)
+        if not player_component:
+            return target_options
+        
+        ctx = EvalContext(
+            source=player_component,
+            event=None,
+            targets=(),
+            game=game_state,
+            phase=str(game_state.current_phase),
+            turn=game_state.turn_number
+        )
+        
         for target in targets:
-            target_id = target.get("id")
-            selector = target.get("selector", {})
+            # Evaluate selector to get valid components
+            components = target.selector.evaluate(ctx)
+            # Convert components to component IDs (strings)
+            valid_targets = [str(c.id) for c in components][:target.count]
             
-            # Evaluate selector to get valid targets
-            valid_targets = self._evaluate_selector(selector, game_state, player_id)
-            
-            target_options[target_id] = {
-                "selector": selector,
-                "count": target.get("count", 1),
+            target_options[target.id] = {
+                "selector": target.selector,
+                "count": target.count,
                 "valid_targets": valid_targets
             }
         
         return target_options
     
-    def _evaluate_selector(self, selector: Dict[str, Any], game_state: GameState, player_id: str) -> List[str]:
-        """Evaluate a selector to get valid targets"""
-        zone = selector.get("zone")
-        controller = selector.get("controller", "self")
-        count = selector.get("count", 1)
-        
-        if controller == "self":
-            target_player = player_id
-        elif controller == "opponent":
-            # Get opponent player ID (simplified)
-            target_player = "player2" if player_id == "player1" else "player1"
-        else:
-            target_player = controller
-        
-        if zone:
-            return game_state.get_player_zone(target_player, zone)[:count]
-        
-        return []
+    def _evaluate_selector(self, selector: Selector, ctx: EvalContext) -> List[Component]:
+        """Evaluate a selector expression to get valid components"""
+        return list(selector.evaluate(ctx))
     
     def _determine_trigger_caused_by(self, trigger, event: Event, game_state: GameState) -> List[Dict[str, str]]:
         """Determine caused_by objects based on trigger scope and component source"""
@@ -454,19 +459,81 @@ class RulesetInterpreter:
             if event.payload.get(key) != value:
                 return False
         
-        # Check conditions
+        # Get source component for evaluation context
+        # Try to get component from event.caused_by, otherwise use game component
+        source_component = game_state.get_game_component_instance()
+        if event.caused_by:
+            try:
+                # Try to get component from caused_by if it's a component ID
+                component_id = int(event.caused_by) if isinstance(event.caused_by, str) else None
+                if component_id:
+                    comp = game_state.get_component(component_id)
+                    if comp:
+                        source_component = comp
+            except (ValueError, TypeError):
+                pass
+        
+        if not source_component:
+            # Fallback: create a minimal component context
+            # This shouldn't happen in normal operation
+            return len(trigger.conditions) == 0
+        
+        # Create evaluation context
+        ctx = EvalContext(
+            source=source_component,
+            event=event.to_dict() if hasattr(event, 'to_dict') else {
+                "type": event.type,
+                "payload": event.payload,
+                "caused_by": event.caused_by
+            },
+            targets=(),
+            game=game_state,
+            phase=str(game_state.current_phase),
+            turn=game_state.turn_number
+        )
+        
+        # Check conditions using expression evaluation
         for condition in trigger.conditions:
-            if not self._evaluate_condition(condition, game_state, event):
+            if not condition.evaluate(ctx):
                 return False
         
         return True
     
     def _trigger_conditions_met_for_source(self, trigger, event: Event, game_state: GameState, source_obj: Dict[str, str]) -> bool:
         """Check if trigger conditions are met for a specific source object"""
-        # For now, use the same condition evaluation as the general trigger
-        # In the future, this could be enhanced to evaluate conditions in context of the source object
+        # Get the source component
+        source_component = None
+        if source_obj and "object_id" in source_obj:
+            try:
+                component_id = int(source_obj["object_id"])
+                source_component = game_state.get_component(component_id)
+            except (ValueError, TypeError):
+                pass
+        
+        # Fallback to game component if source not found
+        if not source_component:
+            source_component = game_state.get_game_component_instance()
+        
+        if not source_component:
+            return len(trigger.conditions) == 0
+        
+        # Create evaluation context with source component
+        ctx = EvalContext(
+            source=source_component,
+            event=event.to_dict() if hasattr(event, 'to_dict') else {
+                "type": event.type,
+                "payload": event.payload,
+                "caused_by": event.caused_by
+            },
+            targets=(),
+            game=game_state,
+            phase=str(game_state.current_phase),
+            turn=game_state.turn_number
+        )
+        
+        # Evaluate conditions in context of the source object
         for condition in trigger.conditions:
-            if not self._evaluate_condition(condition, game_state, event):
+            if not condition.evaluate(ctx):
                 return False
         
         return True

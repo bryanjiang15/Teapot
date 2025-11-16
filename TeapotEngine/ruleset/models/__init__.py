@@ -10,8 +10,6 @@ from .resource_models import (
     Resource,
 )
 
-# Player models
-from .player_models import Player
 
 __all__ = [
     # Resource models
@@ -19,6 +17,4 @@ __all__ = [
     "ResourceType", 
     "ResourceDefinition",
     "Resource",
-    # Player models
-    "Player"
 ]

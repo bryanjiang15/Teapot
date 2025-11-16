@@ -3,9 +3,7 @@ Main game engine that coordinates match actors
 """
 
 from typing import Dict, Any, List, Optional
-from core.match_actor import MatchActor
-from core.state import GameState
-from core.events import Event
+from .match_actor import MatchActor
 
 
 class GameEngine:

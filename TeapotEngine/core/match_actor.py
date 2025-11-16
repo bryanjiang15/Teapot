@@ -2,20 +2,22 @@
 Match Actor - Single-threaded game state manager
 """
 
-from typing import Dict, Any, List, Optional, Callable
-from core.state import GameState
-from core.events import Event, Reaction, StackItem, PendingInput, EventStatus, StackItemType, PHASE_ENTERED, PHASE_EXITED, ACTION_EXECUTED, RULE_EXECUTED, TURN_ENDED
-from core.stack import EventStack
-from core.rng import DeterministicRNG
+from typing import Dict, Any, List, Optional, Callable, Set
+from .state import GameState
+from .events import *
+from .stack import EventStack
+from .rng import DeterministicRNG
 from .interpreter import RulesetInterpreter
 from .registry import EventRegistry, ReactionRegistry
-from ruleset.ir import RulesetIR
-from ruleset.rule_definitions import SelectableObjectType
-from ruleset.components import ComponentType
+from TeapotEngine.ruleset.ir import RulesetIR
+from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import SelectableObjectType
+from TeapotEngine.ruleset.componentDefinition import ComponentType
+from TeapotEngine.ruleset.system_data.system_events import *
 
 
 class MatchActor:
     """Single-threaded actor that manages a match's game state"""
+    MAX_RECURSION_DEPTH = 100
     
     def __init__(self, match_id: str, ruleset_ir: Dict[str, Any], seed: int = None, verbose: bool = False):
         self.match_id = match_id
@@ -46,6 +48,13 @@ class MatchActor:
         
         # Event handlers
         self.event_handlers: Dict[str, List[Callable]] = {}
+
+        self.recursion_depth = 0
+
+        self.game_ended = False
+        
+        # Track which events have had pre-reactions discovered
+        self._activated_events: Set[int] = set()
     
     def _initialize_component_instances(self, ruleset_obj: RulesetIR) -> None:
         """Initialize component instances from unified component definitions"""
@@ -63,11 +72,11 @@ class MatchActor:
             
             if component_type == ComponentType.PLAYER:
                 # Create player component instances for each player
-                for player_id in ["player1", "player2"]:
+                # TODO: Fix hardcode player IDs
+                for player_id in [3, 4]:
                     player_component = self.state.create_component(
                         component_data, 
-                        zone="player", 
-                        controller_id=player_id
+                        controller_component_id=player_id
                     )
                     # Register triggers for player component
                     self.interpreter.register_component_triggers(player_component)
@@ -98,13 +107,13 @@ class MatchActor:
         # Enter initial phase
         initial_phase_id = self.state.phase_manager.current_phase_id
         enter_phase_event = Event(
-            type=PHASE_ENTERED,
+            type=PHASE_STARTED,
             payload={"phase_id": initial_phase_id},
             order=self.stack.get_next_order()
         )
         await self._push_event_and_resolve(enter_phase_event)
 
-        if self.state.phase_manager.can_exit_phase(self.state):
+        if await self.check_if_phase_can_exit():
             if self.verbose:
                 print(f"🔍 No actions can be taken, advancing to next phase")
             await self.advance_phase()
@@ -121,7 +130,7 @@ class MatchActor:
             
             # 3. Create and push ActionExecuted event
             action_event = Event(
-                type=ACTION_EXECUTED,
+                type=EXECUTE_ACTION,
                 payload={"action_id": action["type"], "player_id": action["player_id"]},
                 order=self.stack.get_next_order(),
                 caused_by=action["player_id"]
@@ -130,7 +139,7 @@ class MatchActor:
 
             "Check post-resolution events"
             "If there are no more actions that can be taken, advance to the next phase"
-            if self.state.phase_manager.can_exit_phase(self.state):
+            if await self.check_if_phase_can_exit():
                 if self.verbose:
                     print(f"🔍 No actions can be taken, advancing to next phase")
                 await self.advance_phase()
@@ -146,15 +155,20 @@ class MatchActor:
         return self.interpreter.validate_action(action, self.state, action["player_id"])
     
     async def advance_phase(self) -> None:
-        """Advance to next phase"""
+        """Advance to next phase. Executed as an event handler for NEXT_PHASE event."""
         if not self.state.phase_manager:
+            return
+        
+        if self.game_ended:
+            if self.verbose:
+                print(f"🔍 Game has ended, cannot advance phase")
             return
             
         current_phase = self.state.current_phase
         
         # 1. Create and push PhaseExited event
         exit_event = Event(
-            type=PHASE_EXITED,
+            type=PHASE_ENDED,
             payload={"phase_id": current_phase},
             order=self.stack.get_next_order()
         )
@@ -166,7 +180,7 @@ class MatchActor:
         if next_phase_id:
             # 3. Create and push PhaseEntered event
             enter_event = Event(
-                type=PHASE_ENTERED,
+                type=PHASE_STARTED,
                 payload={"phase_id": next_phase_id},
                 order=self.stack.get_next_order()
             )
@@ -174,11 +188,19 @@ class MatchActor:
         else:
             # Turn ended, advance to next turn
             await self.end_turn()
+            return
         
-        if self.state.phase_manager.can_exit_phase(self.state):
+        if await self.check_if_phase_can_exit():
             if self.verbose:
                 print(f"🔍 No actions can be taken, advancing to next phase")
             await self.advance_phase()
+    
+    async def check_if_phase_can_exit(self) -> bool:
+        """Check if the current phase can be exited"""
+        actions = self.interpreter.get_available_actions(self.state, self.state.active_player)
+        if not actions:
+            return self.state.phase_manager.can_exit_phase(self.state)
+        return False
     
     async def end_turn(self) -> None:
         """End the current turn and advance to the next turn"""
@@ -200,14 +222,28 @@ class MatchActor:
         if self.state.phase_manager.active_player:
             self.state.active_player = self.state.phase_manager.active_player
         
+        #End Game if max turns per player is reached
+        if self.state.phase_manager.game_over():
+            await self.end_game()
+            return
+        
         # 4. Enter first phase of new turn
         first_phase_id = self.state.phase_manager.current_phase_id
         enter_phase_event = Event(
-            type=PHASE_ENTERED,
+            type=PHASE_STARTED,
             payload={"phase_id": first_phase_id},
             order=self.stack.get_next_order()
         )
         await self._push_event_and_resolve(enter_phase_event)
+    
+    async def end_game(self) -> None:
+        """End the game"""
+        end_game_event = Event(
+            type=GAME_ENDED,
+            payload={"game_id": self.match_id},
+            order=self.stack.get_next_order()
+        )
+        await self._push_event_and_resolve(end_game_event)
     
     async def _pay_action_costs(self, action: Dict[str, Any]) -> None:
         """Pay costs for an action"""
@@ -231,16 +267,54 @@ class MatchActor:
 
     async def _resolve_stack(self) -> None:
         """Resolve event stack"""
+        self.recursion_depth += 1
+        if self.recursion_depth > self.MAX_RECURSION_DEPTH:
+            raise RecursionError("Maximum recursion depth reached")
+        
+        if self.game_ended:
+            return
+        
         while not self.stack.is_empty():
-            item = self.stack.pop()
+            item = self.stack.peek()  # Peek first instead of popping immediately
             
             if item.kind == StackItemType.EVENT:
+                # Check if we've already discovered pre-reactions for this event
+                if item.ref_id not in self._activated_events:
+                    # Discover pre-reactions before popping
+                    pre_reactions = await self._discover_pre_reactions(item)
+                    if pre_reactions:
+                        # Push pre-reactions (reversed for LIFO)
+                        for reaction in reversed(pre_reactions):
+                            reaction_id = self.reaction_registry.register(reaction)
+                            self.stack.push(StackItem(
+                                kind=StackItemType.REACTION,
+                                ref_id=reaction_id,
+                                created_at_order=self.stack.get_next_order()
+                            ))
+                        # Mark that we've discovered pre-reactions for this event
+                        self._activated_events.add(item.ref_id)
+                        # Continue loop - pre-reactions will resolve first
+                        continue
+                
+                # No pre-reactions or already discovered - pop and resolve event
+                item = self.stack.pop()
+                self._activated_events.discard(item.ref_id)  # Clean up
                 await self._resolve_event(item)
             elif item.kind == StackItemType.REACTION:
+                item = self.stack.pop()
                 await self._resolve_reaction(item)
     
+    async def _discover_pre_reactions(self, item: StackItem) -> List[Reaction]:
+        """Discover pre-reactions for an event without popping it"""
+        event = self.event_registry.get(item.ref_id)
+        if not event:
+            return []
+        
+        all_reactions = self.interpreter.discover_reactions(event, self.state)
+        return [r for r in all_reactions if r.timing == "pre"]
+    
     async def _resolve_event(self, item: StackItem) -> None:
-        """Resolve an event"""
+        """Resolve an event."""
         # Get event from registry
         event = self.event_registry.get(item.ref_id)
 
@@ -249,12 +323,36 @@ class MatchActor:
 
         if not event:
             return  # Event already cleaned up or missing
+
+        # 1. Discover triggers that match this event (before applying)
+        all_reactions = self.interpreter.discover_reactions(event, self.state)
         
-        # 1. Discover triggers that match this event
-        reactions = self.interpreter.discover_reactions(event, self.state)
+        # Separate pre-reactions from post-reactions
+        post_reactions = [r for r in all_reactions if r.timing == "post"]
+
+        # 2. Apply event to state
+        self.state.apply_event(event)
+
+        # 3. Execute rules from actions (if EXECUTE_ACTION event)
+        if event.type == EXECUTE_ACTION:
+            action_def = self.interpreter._action_cache.get(event.payload.get("action_id"))
+            if action_def and action_def.execute_rules:
+                for rule_id in action_def.execute_rules:
+                    new_events = self.interpreter.rule_executor.execute_rule( #TODO use EXECUTE_RULE and RULE_EXECUTED events instead
+                        rule_id, event.caused_by, self.state
+                    )
+                    # Register and push new events to stack (Push events backwards to the stack)
+                    for evt in reversed(new_events):
+                        event_id = self.event_registry.register(evt)
+                        self.stack.push(StackItem(
+                            kind=StackItemType.EVENT,
+                            ref_id=event_id,
+                            created_at_order=self.stack.get_next_order()
+                        ))
+                    
         
-        # 2. Execute rules from triggers
-        for reaction in reactions:
+        # 4. Push post-reactions to stack
+        for reaction in post_reactions:
             # Register reaction and push to stack
             reaction_id = self.reaction_registry.register(reaction)
             self.stack.push(StackItem(
@@ -262,26 +360,6 @@ class MatchActor:
                 ref_id=reaction_id,
                 created_at_order=self.stack.get_next_order()
             ))
-        
-        # 3. Execute rules from actions (if ActionExecuted event)
-        if event.type == ACTION_EXECUTED:
-            action_def = self.interpreter._action_cache.get(event.payload.get("action_id"))
-            if action_def and action_def.execute_rules:
-                for rule_id in action_def.execute_rules:
-                    new_events = self.interpreter.rule_executor.execute_rule(
-                        rule_id, event.caused_by, self.state
-                    )
-                    # Register and push new events to stack
-                    for evt in new_events:
-                        event_id = self.event_registry.register(evt)
-                        self.stack.push(StackItem(
-                            kind=StackItemType.EVENT,
-                            ref_id=event_id,
-                            created_at_order=self.stack.get_next_order()
-                        ))
-        
-        # 4. Apply event to state
-        self.state.apply_event(event)
         
         # 5. Clean up event from registry after successful resolution
         self.event_registry.unregister(item.ref_id)

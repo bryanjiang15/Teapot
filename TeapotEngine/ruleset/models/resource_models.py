@@ -8,14 +8,14 @@ from pydantic import BaseModel, Field
 from enum import Enum
 
 
-class ResourceScope(Enum):
+class ResourceScope(str, Enum):
     """Defines the scope of a resource"""
     GLOBAL = "global"  # One resource per game
     PLAYER = "player"  # One resource per player
     OBJECT = "object"  # One resource per object (card, etc.)
 
 
-class ResourceType(Enum):
+class ResourceType(str, Enum):
     """Defines the type of resource behavior"""
     CONSUMABLE = "consumable"  # Can be spent and regenerated
     TRACKED = "tracked"  # Tracks a value (like life total)

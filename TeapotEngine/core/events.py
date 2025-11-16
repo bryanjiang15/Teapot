@@ -8,22 +8,6 @@ from enum import Enum
 import uuid
 from datetime import datetime
 
-# Core event type constants
-
-# Phase events
-PHASE_ENTERED = "PhaseEntered"
-PHASE_EXITED = "PhaseExited"
-TURN_ENDED = "TurnEnded"
-
-# Action/Rule events
-ACTION_EXECUTED = "ActionExecuted"
-RULE_EXECUTED = "RuleExecuted"
-
-# State change events (emitted by rule effects)
-CARD_MOVED = "CardMoved"
-RESOURCE_CHANGED = "ResourceChanged"
-DAMAGE_DEALT = "DamageDealt"
-
 
 class EventStatus(Enum):
     PENDING = "pending"
@@ -45,7 +29,7 @@ class Event:
     payload: Dict[str, Any] = field(default_factory=dict)
     caused_by: Optional[str] = None
     status: EventStatus = EventStatus.PENDING
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=datetime.now)
     order: int = 0
     
     def to_dict(self) -> Dict[str, Any]:

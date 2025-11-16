@@ -2,13 +2,13 @@
 Core engine components for TeapotEngine
 """
 
-from core.engine import GameEngine
-from core.match_actor import MatchActor
-from core.events import Event, Reaction, StackItem, PendingInput
-from core.state import GameState
-from core.stack import EventStack
-from core.rng import DeterministicRNG
-from core.interpreter import RulesetInterpreter
+from .engine import GameEngine
+from .match_actor import MatchActor
+from .events import Event, Reaction, StackItem, PendingInput
+from .state import GameState
+from .stack import EventStack
+from .rng import DeterministicRNG
+from .interpreter import RulesetInterpreter
 
 __all__ = [
     "GameEngine",

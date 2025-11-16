@@ -5,12 +5,12 @@ Game state management with event sourcing
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Set
 
-from ruleset.models.player_models import Player
-from ruleset.models.resource_models import ResourceScope, ResourceDefinition
-from ruleset.components import ComponentDefinition, ComponentType
-from ruleset.ir import RulesetIR
+from TeapotEngine.ruleset.models.resource_models import ResourceScope, ResourceDefinition
+from TeapotEngine.ruleset.componentDefinition import ComponentDefinition, ComponentType
+from TeapotEngine.ruleset.ir import RulesetIR
+from TeapotEngine.ruleset.system_data.system_events import *
 from .component import Component
-from .events import Event, PHASE_ENTERED, PHASE_EXITED, TURN_ENDED
+from .events import Event
 from .component import ComponentManager
 from .phase_manager import PhaseManager, TurnType
 
@@ -101,18 +101,18 @@ class GameState:
         
         return state
     
-    def get_player(self, player_id: str, caused_by: Dict[str, str]) -> Optional['Player']:
+    def get_player(self, player_id: str, caused_by: Optional[Dict[str, str]] = None) -> Optional[Component]:
         """Get a player by ID"""
         if player_id == "self" and caused_by:
             return self.component_manager.get_component_by_type_and_id(ComponentType.PLAYER, int(caused_by.get("object_id"))) 
         return self.component_manager.get_component_by_type_and_id(ComponentType.PLAYER, player_id)
     
     
-    def create_component(self, definition: ComponentDefinition, zone: Optional[str] = None, 
-                        controller_id: Optional[str] = None,
+    def create_component(self, definition: ComponentDefinition, zone_component_id: Optional[int] = None, 
+                        controller_component_id: Optional[int] = None,
                         properties: Optional[Dict[str, Any]] = None):
         """Create a new component instance from a definition and initialize its resources."""
-        component = self.component_manager.create_component(definition, zone, controller_id, properties)
+        component = self.component_manager.create_component(definition, zone_component_id, controller_component_id, properties)
         # Initialize resources defined on this component definition
         for res_def in getattr(definition, 'resources', []) or []:
             # Attach GLOBAL resources to the Game component instance; others attach to this component
@@ -143,17 +143,22 @@ class GameState:
         comps = self.component_manager.get_components_by_type(ComponentType.GAME)
         return comps[0] if comps else None
     
-    def get_components_by_zone(self, zone: str):
-        """Get all component instances in a specific zone"""
-        return self.component_manager.get_components_by_zone(zone)
+    def get_components_by_zone(self, zone_component_id: int):
+        """Get all component instances in a specific zone component"""
+        return self.component_manager.get_components_by_zone(zone_component_id)
     
-    def get_components_by_controller(self, controller_id: str):
-        """Get all component instances controlled by a specific player"""
-        return self.component_manager.get_components_by_controller(controller_id)
+    def find_zone_component_by_name(self, zone_name: str) -> Optional[List[Component]]:
+        """Find a zone component by its name"""
+        zone_components = self.component_manager.get_components_by_type(ComponentType.ZONE)
+        return [zone_component for zone_component in zone_components if zone_component.name == zone_name]
     
-    def move_component(self, component_id: int, new_zone: str, new_controller: Optional[str] = None) -> bool:
+    def get_components_by_controller(self, controller_component_id: int):
+        """Get all component instances controlled by a specific controller component"""
+        return self.component_manager.get_components_by_controller(controller_component_id)
+    
+    def move_component(self, component_id: int, new_zone_component_id: Optional[int] = None, new_controller_component_id: Optional[int] = None) -> bool:
         """Move a component to a new zone and/or controller"""
-        return self.component_manager.move_component(component_id, new_zone, new_controller)
+        return self.component_manager.move_component(component_id, new_zone_component_id, new_controller_component_id)
     
     def get_all_components(self):
         """Get all component instances"""
@@ -181,13 +186,13 @@ class GameState:
         
         # Delegate phase/turn events to phase manager
         if self.phase_manager:
-            if event.type == PHASE_ENTERED:
+            if event.type == PHASE_STARTED:
                 phase_id = event.payload.get("phase_id")
                 if phase_id:
                     self.phase_manager.current_phase_id = phase_id
                     self.phase_manager.current_step_id = 0  # Reset to first step
             
-            elif event.type == PHASE_EXITED:
+            elif event.type == PHASE_ENDED:
                 # Phase exit doesn't change current phase, but could trigger cleanup
                 pass
             

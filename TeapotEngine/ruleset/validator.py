@@ -4,7 +4,7 @@ Ruleset IR validation
 
 from typing import List, Dict, Any, Optional
 from .ir import RulesetIR
-from .rule_definitions import TriggerDefinition, ActionDefinition, PhaseDefinition
+from .ruleDefinitions.rule_definitions import TriggerDefinition, ActionDefinition, PhaseDefinition
 
 
 class ValidationError(Exception):

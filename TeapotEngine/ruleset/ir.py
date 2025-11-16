@@ -5,11 +5,11 @@ Ruleset IR (Intermediate Representation) models
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
-from ruleset.models import ResourceDefinition
-from .rule_definitions import TriggerDefinition, ActionDefinition, RuleDefinition, PhaseDefinition, ZoneDefinition, KeywordDefinition, TurnStructure
-from .components import ComponentDefinition, ComponentType
+from .models import ResourceDefinition
+from .ruleDefinitions.rule_definitions import TriggerDefinition, ActionDefinition, RuleDefinition, PhaseDefinition, ZoneDefinition, KeywordDefinition, TurnStructure
+from .componentDefinition import ComponentDefinition, ComponentType, ComponentRegistry
 from .component_types import GameComponentDefinition
 
 
@@ -31,17 +31,15 @@ class RulesetIR(BaseModel):
     keywords: List[KeywordDefinition] = Field(default_factory=list)
     constants: Dict[str, Any] = Field(default_factory=dict)
     
-    class Config:
-        json_encoders = {
-            # Add any custom encoders if needed
-        }
+    model_config = ConfigDict(
         # Enable enum serialization
-        use_enum_values = True
+        use_enum_values=True
+    )
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary with proper enum serialization"""
         # Get the base dictionary
-        data = self.dict()
+        data = self.model_dump()
         
         # Handle component_definitions specially to preserve specific fields
         if 'component_definitions' in data and self.component_definitions:
@@ -152,7 +150,6 @@ class RulesetIR(BaseModel):
         all_triggers = []
         
         # Create a component registry for resolving references
-        from .components import ComponentRegistry
         registry = ComponentRegistry()
         
         # Register game component if it exists

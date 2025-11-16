@@ -1,0 +1,8 @@
+{
+    "python.testing.pytestArgs": [
+        "TeapotEngine"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/env/bin/python"
+}
