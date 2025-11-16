@@ -6,7 +6,7 @@ Specific component types for the component-based trigger system
 
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
-from .componentDefinition import ComponentDefinition, ComponentType
+from .ComponentDefinition import ComponentDefinition, ComponentType
 
 class GameComponentDefinition(ComponentDefinition):
     """Game-level component that defines the base game rules and structure"""

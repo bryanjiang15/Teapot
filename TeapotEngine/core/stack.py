@@ -3,8 +3,8 @@ Event stack management for the game engine
 """
 
 from typing import List, Optional, Dict, Any
-from .events import StackItem, Event, Reaction, StackItemType
-from .state import GameState
+from .Events import StackItem, Event, Reaction, StackItemType
+from .GameState import GameState
 
 
 class EventStack:

@@ -7,10 +7,10 @@ from typing import Dict, Any, List, Optional
 from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict
 
-from .models import ResourceDefinition
-from .ruleDefinitions.rule_definitions import TriggerDefinition, ActionDefinition, RuleDefinition, PhaseDefinition, ZoneDefinition, KeywordDefinition, TurnStructure
-from .componentDefinition import ComponentDefinition, ComponentType, ComponentRegistry
-from .component_types import GameComponentDefinition
+from .models.ResourceModel import ResourceDefinition
+from .rule_definitions.RuleDefinition import TriggerDefinition, ActionDefinition, RuleDefinition, PhaseDefinition, ZoneDefinition, KeywordDefinition, TurnStructure
+from .ComponentDefinition import ComponentDefinition, ComponentType, ComponentRegistry
+from .ComponentType import GameComponentDefinition
 
 
 class RulesetIR(BaseModel):
@@ -70,7 +70,7 @@ class RulesetIR(BaseModel):
     @classmethod
     def _deserialize_component(cls, comp_data: Dict[str, Any]) -> ComponentDefinition:
         """Deserialize a component based on its type"""
-        from .component_types import (
+        from .ComponentType import (
             GameComponentDefinition,
             PlayerComponentDefinition, 
             CardComponentDefinition,

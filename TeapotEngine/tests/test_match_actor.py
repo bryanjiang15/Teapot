@@ -3,10 +3,10 @@ Tests for MatchActor class
 """
 
 import pytest
-from TeapotEngine.core.match_actor import MatchActor
-from TeapotEngine.core.events import Event
-from TeapotEngine.ruleset.ir import RulesetIR
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import SelectableObjectType
+from TeapotEngine.core.MatchActor import MatchActor
+from TeapotEngine.core.Events import Event
+from TeapotEngine.ruleset.IR import RulesetIR
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import SelectableObjectType
 from TeapotEngine.tests.helpers.ruleset_helper import RulesetHelper
 
 
@@ -160,7 +160,7 @@ class TestMatchActor:
         actor = MatchActor("test_match", ruleset.to_dict(), seed=42)
         
         # Create a pending input
-        from TeapotEngine.core.events import PendingInput
+        from TeapotEngine.core.Events import PendingInput
         pending_input = PendingInput(
             input_id="test_input",
             for_player_ids=["player1"],

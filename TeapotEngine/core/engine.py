@@ -3,7 +3,7 @@ Main game engine that coordinates match actors
 """
 
 from typing import Dict, Any, List, Optional
-from .match_actor import MatchActor
+from .MatchActor import MatchActor
 
 
 class GameEngine:
@@ -73,7 +73,7 @@ class GameEngine:
             return None
         
         # Convert string to enum
-        from ruleset.rule_definitions import SelectableObjectType
+        from ruleset.rule_definitions.RuleDefinition import SelectableObjectType
         try:
             object_type_enum = SelectableObjectType(object_type)
         except ValueError:

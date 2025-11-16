@@ -3,14 +3,14 @@ Ruleset IR interpreter for game logic
 """
 
 from typing import Dict, Any, List, Optional
-from TeapotEngine.ruleset.ir import RulesetIR
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import ActionDefinition, PhaseDefinition, SelectableObjectType, RuleDefinition
-from TeapotEngine.ruleset.expression_model import EvalContext, Predicate, Selector
-from TeapotEngine.ruleset.system_data.system_events import *
-from .state import GameState
-from .events import Event, Reaction
-from .eventBus import EventBus
-from .component import Component
+from TeapotEngine.ruleset.IR import RulesetIR
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import ActionDefinition, PhaseDefinition, SelectableObjectType, RuleDefinition
+from TeapotEngine.ruleset.ExpressionModel import EvalContext, Predicate, Selector
+from TeapotEngine.ruleset.system_models.SystemEvent import *
+from .GameState import GameState
+from .Events import Event, Reaction
+from .EventBus import EventBus
+from .Component import Component
 
 
 class RuleExecutor:

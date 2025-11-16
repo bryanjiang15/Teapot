@@ -5,8 +5,8 @@ from typing import Dict, Any, Iterable, List, Literal, Optional, Protocol, Seque
 from pydantic import BaseModel, Field, ConfigDict
 
 if TYPE_CHECKING:
-    from core.component import Component
-    from core.state import GameState
+    from core.Component import Component
+    from core.GameState import GameState
 
 @dataclass
 class EvalContext:

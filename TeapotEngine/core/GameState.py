@@ -5,14 +5,14 @@ Game state management with event sourcing
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Set
 
-from TeapotEngine.ruleset.models.resource_models import ResourceScope, ResourceDefinition
-from TeapotEngine.ruleset.componentDefinition import ComponentDefinition, ComponentType
-from TeapotEngine.ruleset.ir import RulesetIR
-from TeapotEngine.ruleset.system_data.system_events import *
-from .component import Component
-from .events import Event
-from .component import ComponentManager
-from .phase_manager import PhaseManager, TurnType
+from TeapotEngine.ruleset.models.ResourceModel import ResourceScope, ResourceDefinition
+from TeapotEngine.ruleset.ComponentDefinition import ComponentDefinition, ComponentType
+from TeapotEngine.ruleset.IR import RulesetIR
+from TeapotEngine.ruleset.system_models.SystemEvent import *
+from .Component import Component
+from .Events import Event
+from .Component import ComponentManager
+from .PhaseManager import PhaseManager, TurnType
 
 
 @dataclass

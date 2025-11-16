@@ -3,8 +3,8 @@ Tests for EventStack class
 """
 
 import pytest
-from TeapotEngine.core.stack import EventStack
-from TeapotEngine.core.events import StackItem, StackItemType
+from TeapotEngine.core.Stack import EventStack
+from TeapotEngine.core.Events import StackItem, StackItemType
 
 
 class TestEventStack:

@@ -3,16 +3,16 @@ Match Actor - Single-threaded game state manager
 """
 
 from typing import Dict, Any, List, Optional, Callable, Set
-from .state import GameState
-from .events import *
-from .stack import EventStack
+from .GameState import GameState
+from .Events import *
+from .Stack import EventStack
 from .rng import DeterministicRNG
-from .interpreter import RulesetInterpreter
-from .registry import EventRegistry, ReactionRegistry
-from TeapotEngine.ruleset.ir import RulesetIR
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import SelectableObjectType
-from TeapotEngine.ruleset.componentDefinition import ComponentType
-from TeapotEngine.ruleset.system_data.system_events import *
+from .Interpreter import RulesetInterpreter
+from .EventRegistry import EventRegistry, ReactionRegistry
+from TeapotEngine.ruleset.IR import RulesetIR
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import SelectableObjectType
+from TeapotEngine.ruleset.ComponentDefinition import ComponentType
+from TeapotEngine.ruleset.system_models.SystemEvent import *
 
 
 class MatchActor:

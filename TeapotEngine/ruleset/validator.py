@@ -3,8 +3,8 @@ Ruleset IR validation
 """
 
 from typing import List, Dict, Any, Optional
-from .ir import RulesetIR
-from .ruleDefinitions.rule_definitions import TriggerDefinition, ActionDefinition, PhaseDefinition
+from .IR import RulesetIR
+from .rule_definitions.RuleDefinition import TriggerDefinition, ActionDefinition, PhaseDefinition
 
 
 class ValidationError(Exception):

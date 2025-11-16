@@ -3,11 +3,11 @@ Tests for EventBus and TriggerSubscription classes
 """
 
 import pytest
-from TeapotEngine.core.eventBus import EventBus, TriggerSubscription
-from TeapotEngine.core.events import Event, Reaction
-from TeapotEngine.core.component import Component, ComponentStatus
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TriggerDefinition
-from TeapotEngine.ruleset.componentDefinition import ComponentType
+from TeapotEngine.core.EventBus import EventBus, TriggerSubscription
+from TeapotEngine.core.Events import Event, Reaction
+from TeapotEngine.core.Component import Component, ComponentStatus
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TriggerDefinition
+from TeapotEngine.ruleset.ComponentDefinition import ComponentType
 from TeapotEngine.tests.helpers.ruleset_helper import RulesetHelper
 
 
@@ -138,7 +138,7 @@ class TestEventBus:
         # Create a mock game state with component manager
         class MockGameState:
             def __init__(self):
-                from core.component import ComponentManager
+                from core.Component import ComponentManager
                 self.component_manager = ComponentManager()
                 component = Component(
                     id=1,
@@ -171,7 +171,7 @@ class TestEventBus:
         
         class MockGameState:
             def __init__(self):
-                from core.component import ComponentManager
+                from core.Component import ComponentManager
                 self.component_manager = ComponentManager()
         
         game_state = MockGameState()
@@ -196,7 +196,7 @@ class TestEventBus:
         
         class MockGameState:
             def __init__(self):
-                from core.component import ComponentManager
+                from core.Component import ComponentManager
                 self.component_manager = ComponentManager()
                 component = Component(
                     id=1,

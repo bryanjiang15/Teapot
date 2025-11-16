@@ -4,9 +4,9 @@ Event bus for managing trigger subscriptions with dynamic registration
 
 from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
-from .events import Event, Reaction
-from .component import Component
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TriggerDefinition
+from .Events import Event, Reaction
+from .Component import Component
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TriggerDefinition
 
 
 @dataclass

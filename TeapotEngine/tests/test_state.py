@@ -2,13 +2,13 @@
 Tests for GameState class
 """
 
-from TeapotEngine.core.state import GameState
-from TeapotEngine.core.events import Event
-from TeapotEngine.core.component import Component
-from TeapotEngine.ruleset.componentDefinition import ComponentDefinition, ComponentType
-from TeapotEngine.ruleset.models.resource_models import ResourceDefinition, ResourceScope, ResourceType
-from TeapotEngine.ruleset.ir import RulesetIR
-from TeapotEngine.ruleset.system_data.system_events import PHASE_STARTED, PHASE_ENDED, TURN_ENDED
+from TeapotEngine.core.GameState import GameState
+from TeapotEngine.core.Events import Event
+from TeapotEngine.core.Component import Component
+from TeapotEngine.ruleset.ComponentDefinition import ComponentDefinition, ComponentType
+from TeapotEngine.ruleset.models.ResourceModel import ResourceDefinition, ResourceScope, ResourceType
+from TeapotEngine.ruleset.IR import RulesetIR
+from TeapotEngine.ruleset.system_models.SystemEvent import PHASE_STARTED, PHASE_ENDED, TURN_ENDED
 from TeapotEngine.tests.helpers.ruleset_helper import RulesetHelper
 
 

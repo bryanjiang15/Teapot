@@ -7,9 +7,9 @@ import sys
 import os
 import asyncio
 
-from TeapotEngine.core.state import Player
-from TeapotEngine.core.engine import GameEngine
-from TeapotEngine.ruleset.ir import RulesetIR
+from TeapotEngine.core.GameState import Player
+from TeapotEngine.core.Engine import GameEngine
+from TeapotEngine.ruleset.IR import RulesetIR
 from TeapotEngine.example_ruleset import get_example_ruleset
 
 async def main():

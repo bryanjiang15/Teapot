@@ -3,8 +3,8 @@ Tests for EventRegistry and ReactionRegistry classes
 """
 
 import pytest
-from TeapotEngine.core.registry import EventRegistry, ReactionRegistry
-from TeapotEngine.core.events import Event, Reaction, EventStatus
+from TeapotEngine.core.EventRegistry import EventRegistry, ReactionRegistry
+from TeapotEngine.core.Events import Event, Reaction, EventStatus
 
 
 class TestEventRegistry:

@@ -3,7 +3,7 @@ Tests for the main game engine
 """
 
 import pytest
-from TeapotEngine.core.engine import GameEngine
+from TeapotEngine.core.Engine import GameEngine
 from TeapotEngine.tests.helpers.ruleset_helper import RulesetHelper
 
 

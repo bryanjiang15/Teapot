@@ -3,14 +3,14 @@ Tests for RulesetInterpreter and RuleExecutor classes
 """
 
 import pytest
-from TeapotEngine.core.interpreter import RulesetInterpreter, RuleExecutor
-from TeapotEngine.core.state import GameState
-from TeapotEngine.core.events import Event
-from TeapotEngine.core.component import Component
-from TeapotEngine.ruleset.ir import RulesetIR
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import RuleDefinition, ActionDefinition
-from TeapotEngine.ruleset.componentDefinition import ComponentDefinition, ComponentType
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TriggerDefinition
+from TeapotEngine.core.Interpreter import RulesetInterpreter, RuleExecutor
+from TeapotEngine.core.GameState import GameState
+from TeapotEngine.core.Events import Event
+from TeapotEngine.core.Component import Component
+from TeapotEngine.ruleset.IR import RulesetIR
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import RuleDefinition, ActionDefinition
+from TeapotEngine.ruleset.ComponentDefinition import ComponentDefinition, ComponentType
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TriggerDefinition
 from TeapotEngine.tests.helpers.ruleset_helper import RulesetHelper
 
 

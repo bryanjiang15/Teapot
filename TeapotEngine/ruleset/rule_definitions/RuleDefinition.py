@@ -4,8 +4,8 @@ Trigger definition models
 
 from typing import Dict, Any, List, Literal, Optional
 from pydantic import BaseModel, Field
-from TeapotEngine.ruleset.rulesetModels import PhaseExitType, ZoneVisibilityType, SelectableObjectType
-from TeapotEngine.ruleset.expression_model import Predicate, Selector
+from TeapotEngine.ruleset.RulesetModels import PhaseExitType, ZoneVisibilityType, SelectableObjectType
+from TeapotEngine.ruleset.ExpressionModel import Predicate, Selector
 from enum import Enum
 
 class TargetDefinition(BaseModel):

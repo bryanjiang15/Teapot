@@ -5,7 +5,7 @@ Turn/Phase Manager for game state
 from typing import List, Optional, Dict, Any
 from enum import Enum
 from dataclasses import dataclass
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TurnStructure, PhaseDefinition
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TurnStructure, PhaseDefinition
 
 
 class TurnType(Enum):

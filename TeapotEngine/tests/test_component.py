@@ -3,10 +3,10 @@ Tests for Component and ComponentManager classes
 """
 
 import pytest
-from TeapotEngine.core.component import Component, ComponentManager, ComponentStatus
-from TeapotEngine.ruleset.componentDefinition import ComponentDefinition, ComponentType
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TriggerDefinition
-from TeapotEngine.ruleset.models.resource_models import ResourceDefinition, ResourceScope, ResourceType
+from TeapotEngine.core.Component import Component, ComponentManager, ComponentStatus
+from TeapotEngine.ruleset.ComponentDefinition import ComponentDefinition, ComponentType
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TriggerDefinition
+from TeapotEngine.ruleset.models.ResourceModel import ResourceDefinition, ResourceScope, ResourceType
 
 
 class TestComponent:

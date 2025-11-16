@@ -3,9 +3,9 @@ Tests for PhaseManager class
 """
 
 import pytest
-from TeapotEngine.core.phase_manager import PhaseManager, TurnType
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TurnStructure, PhaseDefinition, StepDefinition
-from TeapotEngine.ruleset.ir import RulesetIR
+from TeapotEngine.core.PhaseManager import PhaseManager, TurnType
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TurnStructure, PhaseDefinition, StepDefinition
+from TeapotEngine.ruleset.IR import RulesetIR
 from TeapotEngine.tests.helpers.ruleset_helper import RulesetHelper
 
 

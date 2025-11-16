@@ -3,7 +3,7 @@ Models package for TeapotEngine ruleset
 """
 
 # Resource models
-from .resource_models import (
+from .ResourceModel import (
     ResourceScope,
     ResourceType,
     ResourceDefinition,

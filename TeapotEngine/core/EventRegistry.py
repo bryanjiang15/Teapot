@@ -3,7 +3,7 @@ Registry classes for managing event and reaction lifecycle
 """
 
 from typing import Dict, Optional
-from .events import Event, Reaction
+from .Events import Event, Reaction
 
 
 class EventRegistry:

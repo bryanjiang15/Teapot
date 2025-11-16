@@ -4,8 +4,8 @@ Tests for Event, Reaction, StackItem, and PendingInput classes
 
 import pytest
 from datetime import datetime
-from TeapotEngine.core.events import Event, Reaction, StackItem, PendingInput, EventStatus, StackItemType
-from TeapotEngine.ruleset.system_data.system_events import PHASE_STARTED, PHASE_ENDED, ACTION_EXECUTED
+from TeapotEngine.core.Events import Event, Reaction, StackItem, PendingInput, EventStatus, StackItemType
+from TeapotEngine.ruleset.system_models.SystemEvent import PHASE_STARTED, PHASE_ENDED, ACTION_EXECUTED
 
 
 class TestEvent:

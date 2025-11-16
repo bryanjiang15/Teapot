@@ -3,7 +3,7 @@ Helper class to generate minimal rulesets for testing
 """
 
 from typing import Dict, Any, List, Optional
-from TeapotEngine.ruleset.ir import RulesetIR
+from TeapotEngine.ruleset.IR import RulesetIR
 
 class RulesetHelper:
     """Helper class to generate minimal rulesets for testing"""

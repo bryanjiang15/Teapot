@@ -5,9 +5,9 @@ Component system for game objects
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Union
 from enum import Enum
-from TeapotEngine.ruleset.ruleDefinitions.rule_definitions import TriggerDefinition
-from TeapotEngine.ruleset.componentDefinition import ComponentDefinition, ComponentType
-from TeapotEngine.ruleset.models.resource_models import Resource, ResourceDefinition
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TriggerDefinition
+from TeapotEngine.ruleset.ComponentDefinition import ComponentDefinition, ComponentType
+from TeapotEngine.ruleset.models.ResourceModel import Resource, ResourceDefinition
 
 
 class ComponentStatus(Enum):

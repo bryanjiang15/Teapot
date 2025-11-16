@@ -5,8 +5,8 @@ A flexible, ruleset-driven game engine for TCG games.
 Supports event sourcing, reaction systems, and dynamic rulesets.
 """
 
-from .ruleset.ir import RulesetIR, ActionDefinition, PhaseDefinition
-from .ruleset.validator import RulesetValidator
+from .ruleset.IR import RulesetIR, ActionDefinition, PhaseDefinition
+from .ruleset.Validator import RulesetValidator
 from .core import GameEngine, MatchActor, Event, Reaction, StackItem, PendingInput, GameState, RulesetInterpreter
 
 __version__ = "0.1.0"

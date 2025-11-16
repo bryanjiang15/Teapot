@@ -6,8 +6,8 @@ from typing import Dict, Any, List, Optional, Union, Type
 from enum import Enum
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field, create_model, ConfigDict
-from .ruleDefinitions.rule_definitions import TriggerDefinition
-from .models import ResourceDefinition
+from .rule_definitions.RuleDefinition import TriggerDefinition
+from .models.ResourceModel import ResourceDefinition
 
 
 class ComponentType(Enum):
