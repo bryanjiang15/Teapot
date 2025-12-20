@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Optional
 from .Events import Event, Reaction
 from .Component import Component
 from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TriggerDefinition
+from TeapotEngine.ruleset.system_models.SystemTrigger import SYSTEM_TRIGGERS
 
 
 @dataclass
@@ -30,6 +31,12 @@ class EventBus:
         self._source_subscriptions: Dict[int, List[int]] = {}
         # Auto-incrementing ID counter
         self._next_subscription_id: int = 1
+        self.register_system_triggers()
+    
+    def register_system_triggers(self) -> None:
+        """Register system triggers"""
+        for trigger in SYSTEM_TRIGGERS:
+            self.subscribe(trigger.when.get("eventType"), trigger, 0, {})
     
     def subscribe(self, event_type: str, trigger: TriggerDefinition, component_id: int, 
                   metadata: Optional[Dict[str, Any]] = None) -> int:
@@ -178,7 +185,7 @@ class EventBus:
         return Reaction(
             when=trigger.when,
             conditions=trigger.conditions,
-            effects=trigger.execute_rules,
+            effects=trigger.effects,
             timing=trigger.timing,
             caused_by=caused_by
         )

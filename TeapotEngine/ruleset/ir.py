@@ -75,6 +75,8 @@ class RulesetIR(BaseModel):
             PlayerComponentDefinition, 
             CardComponentDefinition,
             ZoneComponentDefinition,
+            TurnComponentDefinition,
+            PhaseComponentDefinition,
             CustomComponentDefinition
         )
         
@@ -86,6 +88,8 @@ class RulesetIR(BaseModel):
             ComponentType.PLAYER: PlayerComponentDefinition,
             ComponentType.CARD: CardComponentDefinition,
             ComponentType.ZONE: ZoneComponentDefinition,
+            ComponentType.TURN: TurnComponentDefinition,
+            ComponentType.PHASE: PhaseComponentDefinition,
             ComponentType.CUSTOM: CustomComponentDefinition
         }
         
@@ -226,3 +230,11 @@ class RulesetIR(BaseModel):
         ])
         
         return components
+    
+    def get_turn_components(self) -> List[ComponentDefinition]:
+        """Get all turn component definitions"""
+        return self.get_components_by_type(ComponentType.TURN)
+    
+    def get_phase_components(self) -> List[ComponentDefinition]:
+        """Get all phase component definitions"""
+        return self.get_components_by_type(ComponentType.PHASE)

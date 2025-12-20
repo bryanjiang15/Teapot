@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List
 from enum import Enum
 import uuid
 from datetime import datetime
+from TeapotEngine.ruleset.rule_definitions.EffectDefinition import EffectDefinition
 
 
 class EventStatus(Enum):
@@ -61,8 +62,8 @@ class Reaction:
     """A rule-driven response to an event"""
     id: int = field(default_factory=lambda: int(uuid.uuid4().int % 1000000))
     when: Dict[str, Any] = field(default_factory=dict)
-    conditions: List[Dict[str, Any]] = field(default_factory=list)
-    effects: List[Dict[str, Any]] = field(default_factory=list)
+    condition: Optional[Dict[str, Any]] = None  # Single condition predicate
+    effects: List["EffectDefinition"] = field(default_factory=list)
     timing: str = "post"  # "pre" or "post"
     caused_by: Optional[Dict[str, str]] = None  # {"object_type": str, "object_id": str}
     
@@ -70,7 +71,7 @@ class Reaction:
         return {
             "id": self.id,
             "when": self.when,
-            "conditions": self.conditions,
+            "condition": self.condition,
             "effects": self.effects,
             "timing": self.timing,
             "caused_by": self.caused_by
@@ -81,7 +82,7 @@ class Reaction:
         return cls(
             id=data["id"],
             when=data["when"],
-            conditions=data["conditions"],
+            condition=data.get("condition"),
             effects=data["effects"],
             timing=data["timing"],
             caused_by=data.get("caused_by")

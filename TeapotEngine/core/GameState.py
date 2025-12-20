@@ -12,7 +12,7 @@ from TeapotEngine.ruleset.system_models.SystemEvent import *
 from .Component import Component
 from .Events import Event
 from .Component import ComponentManager
-from .PhaseManager import PhaseManager, TurnType
+from .PhaseManager import TurnType
 
 
 @dataclass
@@ -20,7 +20,16 @@ class GameState:
     """Current state of the game derived from events"""
     match_id: str
     active_player: str
-    phase_manager: Optional[PhaseManager] = None
+    
+    # Turn/Phase component tracking (moved from PhaseManager)
+    current_turn_component: Optional[Component] = None
+    current_phase_component: Optional[Component] = None
+    turn_type: TurnType = TurnType.SINGLE_PLAYER
+    player_ids: List[str] = field(default_factory=list)
+    current_phase_id: int = 0
+    current_step_id: int = 0
+    turn_number: int = 1
+    
     # Resource definition registry (by definition id)
     resource_definitions: Dict[int, ResourceDefinition] = field(default_factory=dict)
     
@@ -56,6 +65,10 @@ class GameState:
                 "exile": [],
                 "deck": {2: [], 3: []}
             }
+        
+        # Set initial active player if not set
+        if not self.active_player and self.player_ids:
+            self.active_player = self.player_ids[0]
 
     def allocate_resource_instance_id(self) -> int:
         """Allocate a unique, incrementing resource instance id."""
@@ -73,31 +86,70 @@ class GameState:
             player_ids: List of player IDs, defaults to ["player1", "player2"]
             
         Returns:
-            Initialized GameState with phase manager and resource manager
+            Initialized GameState with turn/phase components
         """
         if player_ids is None:
             player_ids = ["player1", "player2"]
         
         # Create GameState instance
-        state = cls(match_id=match_id, active_player=player_ids[0])
+        state = cls(
+            match_id=match_id, 
+            active_player=player_ids[0],
+            player_ids=player_ids
+        )
         
         # Load resource definitions into state registry
         state.resource_definitions = {rd.id: rd for rd in ruleset.get_all_resources()}
         
-        # Initialize phase manager
-        turn_type_str = getattr(ruleset.turn_structure, 'turn_type', 'single_player')
-        turn_type = TurnType.SINGLE_PLAYER if turn_type_str == "single_player" else TurnType.SYNCHRONOUS
+        # Initialize turn/phase component instances
+        turn_components = ruleset.get_turn_components()
+        phase_components = ruleset.get_phase_components()
         
-        phase_manager = PhaseManager(
-            turn_structure=ruleset.turn_structure,
-            turn_type=turn_type,
-            player_ids=player_ids
-        )
-        state.phase_manager = phase_manager
+        if not turn_components:
+            raise ValueError("Ruleset must contain at least one turn component definition")
         
-        # Sync active_player with phase manager
-        if phase_manager.active_player:
-            state.active_player = phase_manager.active_player
+        # Create turn component instance
+        turn_def = turn_components[0]  # Use first turn component definition
+        turn_component = state.create_component(turn_def)
+        
+        # Store turn definition ID in component metadata for later lookup
+        turn_component.update_metadata("turn_definition_id", turn_def.id)
+        state.current_turn_component = turn_component
+        
+        # Get turn type from component definition
+        turn_type_str = getattr(turn_def, 'turn_type', 'single_player')
+        state.turn_type = TurnType.SINGLE_PLAYER if turn_type_str == "single_player" else TurnType.SYNCHRONOUS
+        
+        # Create initial phase component instance
+        # Find the entry phase from turn workflow graph
+        initial_phase_component = None
+        if hasattr(turn_def, 'workflow_graph') and turn_def.workflow_graph:
+            entry_node = turn_def.workflow_graph.get_entry_node()
+            if entry_node and phase_components:
+                # Find phase component definition using component_definition_id
+                target_phase_def = None
+                if entry_node.component_definition_id is not None:
+                    # Use explicit component_definition_id
+                    for phase_def in phase_components:
+                        if phase_def.id == entry_node.component_definition_id:
+                            target_phase_def = phase_def
+                            break
+                
+                if target_phase_def:
+                    initial_phase_component = state.create_component(target_phase_def)
+                    initial_phase_component.update_metadata("phase_id", target_phase_def.id)
+                    # Initialize workflow state - enter at entry node
+                    if hasattr(target_phase_def, 'workflow_graph') and target_phase_def.workflow_graph:
+                        phase_entry = target_phase_def.workflow_graph.get_entry_node()
+                        if phase_entry and initial_phase_component.workflow_state:
+                            initial_phase_component.workflow_state.enter_node(phase_entry.id)
+        
+        state.current_phase_component = initial_phase_component
+        
+        # Sync current_phase_id from phase component
+        if initial_phase_component:
+            phase_id = initial_phase_component.get_metadata("phase_id") or initial_phase_component.definition_id
+            state.current_phase_id = phase_id
         
         return state
     
@@ -166,41 +218,23 @@ class GameState:
     
     @property
     def current_phase(self) -> int:
-        """Get current phase ID from phase manager"""
-        return self.phase_manager.current_phase_id if self.phase_manager else 0
-    
-    @property
-    def turn_number(self) -> int:
-        """Get current turn number from phase manager"""
-        return self.phase_manager.turn_number if self.phase_manager else 1
+        """Get current phase ID"""
+        return self.current_phase_id
     
     @property
     def current_step(self) -> int:
-        """Get current step ID from phase manager"""
-        return self.phase_manager.current_step_id if self.phase_manager else 0
+        """Get current step ID"""
+        return self.current_step_id
         
     
     def apply_event(self, event: Event) -> None:
         """Apply an event to the game state"""
         self.event_log.append(event)
         
-        # Delegate phase/turn events to phase manager
-        if self.phase_manager:
-            if event.type == PHASE_STARTED:
-                phase_id = event.payload.get("phase_id")
-                if phase_id:
-                    self.phase_manager.current_phase_id = phase_id
-                    self.phase_manager.current_step_id = 0  # Reset to first step
-            
-            elif event.type == PHASE_ENDED:
-                # Phase exit doesn't change current phase, but could trigger cleanup
-                pass
-            
-            elif event.type == TURN_ENDED:
-                # Turn ended - phase manager should already be updated
-                # Sync active_player with phase manager
-                if self.phase_manager.active_player:
-                    self.active_player = self.phase_manager.active_player
+        # Handle turn/phase events
+        if event.type == TURN_ENDED:
+            # Turn ended - sync active_player already done externally
+            pass
         
         # Handle other event types
         if event.type == "CardMoved":
@@ -350,10 +384,14 @@ class GameState:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert state to dictionary for serialization"""
+        current_phase_name = None
+        if self.current_phase_component:
+            current_phase_name = self.current_phase_component.name
+        
         return {
             "match_id": self.match_id,
             "active_player": self.active_player,
-            "current_phase": self.phase_manager.get_current_phase_info().name,
+            "current_phase": current_phase_name or f"phase_{self.current_phase}",
             "current_step": self.current_step,
             "turn_number": self.turn_number,
             "players": {pid: player.model_dump() for pid, player in self.players.items()},

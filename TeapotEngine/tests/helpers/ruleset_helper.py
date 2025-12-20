@@ -9,6 +9,46 @@ class RulesetHelper:
     """Helper class to generate minimal rulesets for testing"""
     
     @staticmethod
+    def _get_default_turn_component() -> Dict[str, Any]:
+        """Get default turn component definition"""
+        return {
+            "id": 100,
+            "name": "Default Turn",
+            "component_type": "turn",
+            "turn_type": "single_player",
+            "max_turns_per_player": 10,
+            "workflow_graph": {
+                "nodes": [
+                    # component_definition_id links to PhaseComponentDefinition.id = 1
+                    {"id": "main_phase", "name": "Main Phase", "node_type": "start", "component_definition_id": 1},
+                    {"id": "end", "name": "End", "node_type": "end"}
+                ],
+                "edges": [
+                    {"from_node_id": "main_phase", "to_node_id": "end"}
+                ]
+            }
+        }
+    
+    @staticmethod
+    def _get_default_phase_component() -> Dict[str, Any]:
+        """Get default phase component definition"""
+        return {
+            "id": 1,  # Referenced by turn workflow node's component_definition_id
+            "name": "Main Phase",
+            "component_type": "phase",
+            "exit_type": "exit_on_no_actions",
+            "workflow_graph": {
+                "nodes": [
+                    {"id": "start", "name": "Start", "node_type": "start"},
+                    {"id": "end", "name": "End", "node_type": "end"}
+                ],
+                "edges": [
+                    {"from_node_id": "start", "to_node_id": "end"}
+                ]
+            }
+        }
+    
+    @staticmethod
     def create_minimal_ruleset() -> Dict[str, Any]:
         """Create a basic ruleset with minimal required fields"""
         return {
@@ -32,7 +72,10 @@ class RulesetHelper:
             },
             "actions": [],
             "rules": [],
-            "component_definitions": []
+            "component_definitions": [
+                RulesetHelper._get_default_turn_component(),
+                RulesetHelper._get_default_phase_component()
+            ]
         }
     
     @staticmethod
@@ -55,7 +98,12 @@ class RulesetHelper:
     def create_ruleset_with_components(components: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with component definitions"""
         ruleset = RulesetHelper.create_minimal_ruleset()
-        ruleset["component_definitions"] = components
+        # Keep default turn/phase components and add the custom ones
+        default_components = [
+            RulesetHelper._get_default_turn_component(),
+            RulesetHelper._get_default_phase_component()
+        ]
+        ruleset["component_definitions"] = default_components + components
         return ruleset
     
     @staticmethod
@@ -75,7 +123,7 @@ class RulesetHelper:
             "player_zones": [],
             "triggers": []
         }
-        ruleset["component_definitions"] = [player_component]
+        ruleset["component_definitions"].append(player_component)
         return ruleset
     
     @staticmethod
@@ -99,6 +147,8 @@ class RulesetHelper:
             "actions": [],
             "rules": [],
             "component_definitions": [
+                RulesetHelper._get_default_turn_component(),
+                RulesetHelper._get_default_phase_component(),
                 {
                     "id": 1,
                     "name": "Base Player",
@@ -160,14 +210,21 @@ class RulesetHelper:
             },
             "actions": [],
             "rules": [],
-            "component_definitions": []
+            "component_definitions": [
+                RulesetHelper._get_default_turn_component(),
+                RulesetHelper._get_default_phase_component()
+            ]
         }
     
     @staticmethod
     def create_ruleset_with_triggers(triggers: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with triggers on a player component"""
         ruleset = RulesetHelper.create_ruleset_with_player_component()
-        ruleset["component_definitions"][0]["triggers"] = triggers
+        # Find the player component and add triggers
+        for comp in ruleset["component_definitions"]:
+            if comp.get("component_type") == "player":
+                comp["triggers"] = triggers
+                break
         return ruleset
     
     @staticmethod
@@ -175,4 +232,3 @@ class RulesetHelper:
         """Create a RulesetIR object for testing"""
         ruleset_dict = RulesetHelper.create_ruleset_with_player_component()
         return RulesetIR.from_dict(ruleset_dict)
-

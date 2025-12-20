@@ -6,6 +6,8 @@ Specific component types for the component-based trigger system
 
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
+
+from .workflow import WorkflowGraph
 from .ComponentDefinition import ComponentDefinition, ComponentType
 
 class GameComponentDefinition(ComponentDefinition):
@@ -220,6 +222,94 @@ class ZoneComponentDefinition(ComponentDefinition):
         
         # Check that max_size is positive if set
         if self.max_size is not None and self.max_size <= 0:
+            return False
+        
+        return True
+
+
+class TurnComponentDefinition(ComponentDefinition):
+    """Turn component that defines turn structure and workflow"""
+    
+    component_type: ComponentType = ComponentType.TURN
+    
+    # Turn-specific properties
+    workflow_graph: Optional["WorkflowGraph"] = None  # Graph of phases within this turn
+    max_turns_per_player: Optional[int] = None  # Maximum number of turns for each player
+    turn_type: str = "single_player"  # "single_player" or "synchronous"
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.component_type = ComponentType.TURN
+        # Deserialize workflow_graph if present
+        if "workflow_graph" in data and isinstance(data["workflow_graph"], dict):
+            from .workflow.WorkflowGraph import WorkflowGraph
+            self.workflow_graph = WorkflowGraph.from_dict(data["workflow_graph"])
+    
+    def get_component_specific_data(self) -> Dict[str, Any]:
+        """Get turn-specific data"""
+        return {
+            "workflow_graph": self.workflow_graph.to_dict() if self.workflow_graph else None,
+            "max_turns_per_player": self.max_turns_per_player,
+            "turn_type": self.turn_type
+        }
+    
+    def validate_component(self) -> bool:
+        """Validate turn component rules"""
+        # Validate workflow graph if present
+        if self.workflow_graph:
+            is_valid, error = self.workflow_graph.validate()
+            if not is_valid:
+                return False
+        
+        # Check that max_turns_per_player is positive if set
+        if self.max_turns_per_player is not None and self.max_turns_per_player <= 0:
+            return False
+        
+        # Check that turn_type is valid
+        valid_turn_types = ["single_player", "synchronous"]
+        if self.turn_type not in valid_turn_types:
+            return False
+        
+        return True
+
+
+class PhaseComponentDefinition(ComponentDefinition):
+    """Phase component that defines phase structure and workflow"""
+    
+    component_type: ComponentType = ComponentType.PHASE
+    
+    # Phase-specific properties
+    workflow_graph: Optional["WorkflowGraph"] = None  # Graph of steps within this phase
+    exit_type: str = "exit_on_no_actions"  # "exit_on_no_actions" or "user_exit"
+    steps: List[Dict[str, Any]] = Field(default_factory=list)  # Legacy step definitions
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.component_type = ComponentType.PHASE
+        # Deserialize workflow_graph if present
+        if "workflow_graph" in data and isinstance(data["workflow_graph"], dict):
+            from .workflow.WorkflowGraph import WorkflowGraph
+            self.workflow_graph = WorkflowGraph.from_dict(data["workflow_graph"])
+    
+    def get_component_specific_data(self) -> Dict[str, Any]:
+        """Get phase-specific data"""
+        return {
+            "workflow_graph": self.workflow_graph.to_dict() if self.workflow_graph else None,
+            "exit_type": self.exit_type,
+            "steps": self.steps
+        }
+    
+    def validate_component(self) -> bool:
+        """Validate phase component rules"""
+        # Validate workflow graph if present
+        if self.workflow_graph:
+            is_valid, error = self.workflow_graph.validate()
+            if not is_valid:
+                return False
+        
+        # Check that exit_type is valid
+        valid_exit_types = ["exit_on_no_actions", "user_exit"]
+        if self.exit_type not in valid_exit_types:
             return False
         
         return True

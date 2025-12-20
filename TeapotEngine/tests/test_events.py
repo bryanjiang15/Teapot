@@ -86,7 +86,7 @@ class TestReaction:
         assert reaction.when == {"eventType": "PhaseEntered"}
         assert reaction.effects == [1, 2]
         assert reaction.timing == "post"
-        assert reaction.conditions == []
+        assert reaction.condition is None
         assert reaction.id > 0  # Auto-generated
     
     def test_reaction_with_caused_by(self):
@@ -103,7 +103,7 @@ class TestReaction:
         reaction = Reaction(
             id=10,
             when={"eventType": "ActionExecuted"},
-            conditions=[{"op": "check"}],
+            condition={"op": "check"},
             effects=[1, 2, 3],
             timing="pre",
             caused_by={"object_type": "player", "object_id": "player1"}
@@ -111,7 +111,7 @@ class TestReaction:
         data = reaction.to_dict()
         assert data["id"] == 10
         assert data["when"] == {"eventType": "ActionExecuted"}
-        assert data["conditions"] == [{"op": "check"}]
+        assert data["condition"] == {"op": "check"}
         assert data["effects"] == [1, 2, 3]
         assert data["timing"] == "pre"
         assert data["caused_by"] == {"object_type": "player", "object_id": "player1"}
@@ -121,7 +121,7 @@ class TestReaction:
         data = {
             "id": 20,
             "when": {"eventType": "TurnEnded"},
-            "conditions": [],
+            "condition": None,
             "effects": [5],
             "timing": "post",
             "caused_by": {"object_type": "component", "object_id": "456"}
@@ -129,6 +129,7 @@ class TestReaction:
         reaction = Reaction.from_dict(data)
         assert reaction.id == 20
         assert reaction.when == {"eventType": "TurnEnded"}
+        assert reaction.condition is None
         assert reaction.effects == [5]
         assert reaction.timing == "post"
         assert reaction.caused_by == {"object_type": "component", "object_id": "456"}

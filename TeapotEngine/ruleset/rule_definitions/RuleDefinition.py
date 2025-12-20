@@ -3,10 +3,11 @@ Trigger definition models
 """
 
 from typing import Dict, Any, List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from TeapotEngine.ruleset.RulesetModels import PhaseExitType, ZoneVisibilityType, SelectableObjectType
 from TeapotEngine.ruleset.ExpressionModel import Predicate, Selector
-from enum import Enum
+from TeapotEngine.ruleset.rule_definitions.EffectDefinition import EffectDefinition
+from TeapotEngine.ruleset.state_watcher import TriggerType
 
 class TargetDefinition(BaseModel):
     """Definition of a target, can be groups/specific of cards, zones, phases, players, etc."""
@@ -39,41 +40,6 @@ class TurnStructure(BaseModel):
     priority_windows: List[Dict[str, Any]] = Field(default_factory=list)
     initial_phase_id: Optional[int] = None
     max_turns_per_player: Optional[int] = None # Maximum number of turns for each player. If both player go in same turn, it will equal the number of turns.
-
-class EffectDefinition(BaseModel):
-    """A single step in a trigger's effect pipeline."""
-    kind: Literal[
-        "execute_rule",   # existing behavior
-        "emit_event",     # push system/custom events onto stack
-        "sequence",       # sequence of sub-actions
-        "if",             # conditional
-        "for_each",       # loop over filtered targets
-        "modify_state",   # direct state changes, if you allow this
-    ]
-
-    # For "execute_rule"
-    rule_id: Optional[int] = None
-    rule_params: Dict[str, Any] = Field(default_factory=dict)
-
-    # For "emit_event"
-    event_type: Optional[str] = None
-    event_payload: Dict[str, Any] = Field(default_factory=dict)
-
-    # For "sequence"
-    actions: List["ActionDefinition"] = Field(default_factory=list)
-
-    # For "if"
-    condition: Optional[Predicate] = None
-    then_actions: List["ActionDefinition"] = Field(default_factory=list)
-    else_actions: List["ActionDefinition"] = Field(default_factory=list)
-
-    # For "for_each"
-    target_filter: Optional[Predicate] = None
-    body_actions: List["ActionDefinition"] = Field(default_factory=list)
-
-    # For "modify_state"
-    state_op: Optional[str] = None  # e.g. "set_phase", "add_resource"
-    state_args: Dict[str, Any] = Field(default_factory=dict)
 
 class ActionTarget(BaseModel):
     """Definition of a target for an action"""
@@ -117,19 +83,29 @@ class RuleDefinition(BaseModel):
     effects: List[Dict[str, Any]] = Field(default_factory=list)
 
 class TriggerDefinition(BaseModel):
-    """Definition of an event trigger"""
+    """Definition of an event trigger or state-based action"""
     id: int
-    when: Dict[str, Any]
-    conditions: List[Predicate] = Field(default_factory=list)
+    when: Optional[Dict[str, Any]] = None  # For EVENT triggers: which event to match
+    condition: Optional[Predicate] = None  # Single condition predicate (used for both EVENT and STATE_BASED triggers)
     execute_rules: List[int] = Field(default_factory=list)  # Rule IDs to execute
+    effects: List["EffectDefinition"] = Field(default_factory=list)
     parameters: List[Dict[str, Any]] = Field(default_factory=list) # Parameters for the rules to execute
     timing: str = "post"  # "pre", "post"
     caused_by: Optional[str] = None  # Represents the component that caused the trigger
     
-    # NEW: Activation context - when should this trigger be listening?
+    # Activation context - when should this trigger be listening?
     active_while: Optional[Predicate] = None
     # If None: Always listening (game/zone/player triggers)
     # If specified: Only register trigger when context matches
+    
+    # Trigger type - distinguish event triggers from state-based actions
+    trigger_type: TriggerType = TriggerType.EVENT
+    
+    # TODO: Add check_priority field for future priority-based ordering
+    
+    model_config = ConfigDict(
+        use_enum_values=True  # Serialize enums as their values
+    )
 
 class ZoneDefinition(BaseModel):
     """Definition of a game zone"""

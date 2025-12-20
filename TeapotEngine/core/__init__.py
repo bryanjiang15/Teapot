@@ -9,6 +9,7 @@ from .GameState import GameState
 from .Stack import EventStack
 from .rng import DeterministicRNG
 from .Interpreter import RulesetInterpreter
+from .StateWatcherEngine import StateWatcherEngine
 
 __all__ = [
     "GameEngine",
@@ -20,5 +21,6 @@ __all__ = [
     "GameState",
     "EventStack",
     "DeterministicRNG",
-    "RulesetInterpreter"
+    "RulesetInterpreter",
+    "StateWatcherEngine"
 ]

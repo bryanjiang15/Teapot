@@ -9,9 +9,13 @@ from .Stack import EventStack
 from .rng import DeterministicRNG
 from .Interpreter import RulesetInterpreter
 from .EventRegistry import EventRegistry, ReactionRegistry
+from .WorkflowExecutor import WorkflowExecutor
+from .PhaseManager import TurnType
+from .StateWatcherEngine import StateWatcherEngine
 from TeapotEngine.ruleset.IR import RulesetIR
-from TeapotEngine.ruleset.rule_definitions.RuleDefinition import SelectableObjectType
+from TeapotEngine.ruleset.rule_definitions.RuleDefinition import SelectableObjectType, TriggerDefinition
 from TeapotEngine.ruleset.ComponentDefinition import ComponentType
+from TeapotEngine.ruleset.state_watcher import TriggerType
 from TeapotEngine.ruleset.system_models.SystemEvent import *
 
 
@@ -55,15 +59,23 @@ class MatchActor:
         
         # Track which events have had pre-reactions discovered
         self._activated_events: Set[int] = set()
+        
+        # Workflow executor - stateless, owned by MatchActor
+        self.workflow_executor = WorkflowExecutor()
+        
+        # State watcher engine for state-based actions
+        self.state_watcher_engine = StateWatcherEngine()
     
     def _initialize_component_instances(self, ruleset_obj: RulesetIR) -> None:
         """Initialize component instances from unified component definitions"""
         
         # Initialize game component first (if it exists)
         if ruleset_obj.game_component:
-            game_component = self.state.create_component(ruleset_obj.game_component, zone="game")
+            game_component = self.state.create_component(ruleset_obj.game_component)
             # Register triggers for game component
             self.interpreter.register_component_triggers(game_component)
+            # Register state-based watchers
+            self._register_component_state_watchers(game_component)
         
         # Initialize other components
         for component_data in ruleset_obj.component_definitions:
@@ -80,19 +92,59 @@ class MatchActor:
                     )
                     # Register triggers for player component
                     self.interpreter.register_component_triggers(player_component)
+                    # Register state-based watchers
+                    self._register_component_state_watchers(player_component)
             
             elif component_type == ComponentType.ZONE:
                 # Create zone component instance
-                zone_component = self.state.create_component(component_data, zone="zone")
+                zone_component = self.state.create_component(component_data)
                 # Register triggers for zone component
                 self.interpreter.register_component_triggers(zone_component)
+                # Register state-based watchers
+                self._register_component_state_watchers(zone_component)
             
             else:
                 # Custom component - create instance
-                custom_component = self.state.create_component(component_data, zone="custom")
+                custom_component = self.state.create_component(component_data)
                 # Register triggers for custom component
                 self.interpreter.register_component_triggers(custom_component)
+                # Register state-based watchers
+                self._register_component_state_watchers(custom_component)
+    
+    def _register_component_state_watchers(self, component) -> None:
+        """Register state-based triggers from a component with the StateWatcherEngine"""
+        for trigger in component.triggers:
+            if trigger.trigger_type == TriggerType.STATE_BASED:
+                self.state_watcher_engine.register_watcher(trigger, component.id)
+    
+    def _rotate_active_player(self) -> None:
+        """Rotate to the next active player"""
+        if not self.state.player_ids:
+            return
+            
+        try:
+            current_index = self.state.player_ids.index(self.state.active_player)
+            next_index = (current_index + 1) % len(self.state.player_ids)
+            self.state.active_player = self.state.player_ids[next_index]
+        except ValueError:
+            # Current player not found, use first player
+            self.state.active_player = self.state.player_ids[0]
+    
+    def _check_game_over(self) -> bool:
+        """Check if the game is over based on max turns"""
+        if not self.state.current_turn_component:
+            return False
         
+        # Get max_turns from turn component definition, not metadata
+        turn_def = self.interpreter.ruleset_ir.get_component_by_id(
+            self.state.current_turn_component.definition_id
+        )
+        if turn_def:
+            max_turns = getattr(turn_def, 'max_turns_per_player', None)
+            if max_turns:
+                return self.state.turn_number > max_turns
+        
+        return False
     
     async def begin_game(self) -> None:
         """Begin the game"""
@@ -105,7 +157,7 @@ class MatchActor:
         await self._push_event_and_resolve(start_match_event)
 
         # Enter initial phase
-        initial_phase_id = self.state.phase_manager.current_phase_id
+        initial_phase_id = self.state.current_phase_id
         enter_phase_event = Event(
             type=PHASE_STARTED,
             payload={"phase_id": initial_phase_id},
@@ -116,7 +168,12 @@ class MatchActor:
         if await self.check_if_phase_can_exit():
             if self.verbose:
                 print(f"🔍 No actions can be taken, advancing to next phase")
-            await self.advance_phase()
+            end_phase_event = Event(
+                type=PHASE_END_REQUESTED,
+                payload={"phase_id": initial_phase_id},
+                order=self.stack.get_next_order()
+            )
+            await self._push_event_and_resolve(end_phase_event)
     
     async def process_action(self, action: Dict[str, Any]) -> Dict[str, Any]:
         """Process a player action"""
@@ -156,57 +213,149 @@ class MatchActor:
     
     async def advance_phase(self) -> None:
         """Advance to next phase. Executed as an event handler for NEXT_PHASE event."""
-        if not self.state.phase_manager:
-            return
-        
         if self.game_ended:
             if self.verbose:
                 print(f"🔍 Game has ended, cannot advance phase")
             return
-            
-        current_phase = self.state.current_phase
         
-        # 1. Create and push PhaseExited event
-        exit_event = Event(
-            type=PHASE_ENDED,
-            payload={"phase_id": current_phase},
-            order=self.stack.get_next_order()
-        )
-        await self._push_event_and_resolve(exit_event)
+        # Component-based workflow path
+        if self.state.current_phase_component and self.state.current_turn_component:
+            await self._advance_phase_component_based()
+            return
         
-        # 2. Get next phase from phase manager
-        next_phase_id = self.state.phase_manager.advance_phase()
+        # No components available, end turn
+        await self.end_turn()
+    
+    async def _advance_phase_component_based(self) -> None:
+        """Advance phase using component-based workflow"""
+        phase_component = self.state.current_phase_component
+        turn_component = self.state.current_turn_component
         
-        if next_phase_id:
-            # 3. Create and push PhaseEntered event
-            enter_event = Event(
-                type=PHASE_STARTED,
-                payload={"phase_id": next_phase_id},
-                order=self.stack.get_next_order()
-            )
-            await self._push_event_and_resolve(enter_event)
-        else:
-            # Turn ended, advance to next turn
+        # Get phase component definition from ruleset
+        phase_def = self.interpreter.ruleset_ir.get_component_by_id(phase_component.definition_id)
+        
+        if not phase_def or not hasattr(phase_def, 'workflow_graph'):
+            # No workflow graph, end turn
             await self.end_turn()
             return
         
-        if await self.check_if_phase_can_exit():
-            if self.verbose:
-                print(f"🔍 No actions can be taken, advancing to next phase")
-            await self.advance_phase()
+        # Get valid transitions (pass game_state to stateless executor)
+        valid_edges = self.workflow_executor.get_valid_transitions(phase_component, phase_def, self.state)
+        
+        if not valid_edges:
+            # No valid transitions, end turn
+            await self.end_turn()
+            return
+        
+        # Take first valid transition (highest priority)
+        target_node_id = valid_edges[0].to_node_id
+        
+        # Transition to next phase node
+        success = self.workflow_executor.transition_to_node(
+            phase_component,
+            phase_def,
+            target_node_id,
+            self.state
+        )
+        
+        if success:
+            # Check if we've reached an exit node
+            current_node = self.workflow_executor.get_current_node(phase_component, phase_def)
+            if current_node and current_node.node_type.value == "end":
+                # Phase ended, need to transition to next phase in turn workflow
+                await self._transition_to_next_phase_in_turn()
+        else:
+            # Transition failed, end turn
+            await self.end_turn()
+    
+    async def _transition_to_next_phase_in_turn(self) -> None:
+        """Transition to next phase in turn workflow"""
+        turn_component = self.state.current_turn_component
+        
+        if not turn_component:
+            await self.end_turn()
+            return
+        
+        # Get turn component definition from ruleset
+        turn_def = self.interpreter.ruleset_ir.get_component_by_id(turn_component.definition_id)
+        
+        if not turn_def or not hasattr(turn_def, 'workflow_graph'):
+            await self.end_turn()
+            return
+        
+        # Get valid transitions from current turn node
+        valid_edges = self.workflow_executor.get_valid_transitions(turn_component, turn_def, self.state)
+        
+        if not valid_edges:
+            # No more phases in turn, end turn
+            await self.end_turn()
+            return
+        
+        # Transition to next phase node
+        target_node_id = valid_edges[0].to_node_id
+        target_node = turn_def.workflow_graph.get_node(target_node_id)
+        
+        # Find phase component definition for target node
+        phase_defs = self.interpreter.ruleset_ir.get_phase_components()
+        target_phase_def = None
+        
+        if target_node and target_node.component_definition_id is not None:
+            # Use explicit component_definition_id
+            for phase_def in phase_defs:
+                if phase_def.id == target_node.component_definition_id:
+                    target_phase_def = phase_def
+                    break
+        
+        if target_phase_def:
+            # Create new phase component instance
+            new_phase_component = self.state.create_component(target_phase_def)
+            
+            # Enter workflow
+            success = self.workflow_executor.enter_workflow(
+                new_phase_component,
+                target_phase_def
+            )
+            
+            if success:
+                # Update state
+                self.state.current_phase_component = new_phase_component
+                # Use definition ID, not instance ID
+                self.state.current_phase_id = target_phase_def.id
+        else:
+            await self.end_turn()
     
     async def check_if_phase_can_exit(self) -> bool:
         """Check if the current phase can be exited"""
         actions = self.interpreter.get_available_actions(self.state, self.state.active_player)
         if not actions:
-            return self.state.phase_manager.can_exit_phase(self.state)
+            # No actions available, phase can exit
+            if self.state.current_phase_component:
+                phase_def = self.interpreter.ruleset.get_component_by_id(
+                    self.state.current_phase_component.definition_id
+                )
+                if phase_def and hasattr(phase_def, 'workflow_graph'):
+                    return self.workflow_executor.can_exit_workflow(
+                        self.state.current_phase_component, 
+                        phase_def, 
+                        self.state
+                    )
+            return True
         return False
     
     async def end_turn(self) -> None:
         """End the current turn and advance to the next turn"""
-        if not self.state.phase_manager:
+        # Component-based workflow path
+        if self.state.current_turn_component:
+            await self._end_turn_component_based()
             return
-            
+        
+        # No turn component, end game
+        await self.end_game()
+    
+    async def _end_turn_component_based(self) -> None:
+        """End turn using component-based workflow"""
+        turn_component = self.state.current_turn_component
+        
         # 1. Emit TurnEnded event
         turn_ended_event = Event(
             type=TURN_ENDED,
@@ -215,26 +364,70 @@ class MatchActor:
         )
         await self._push_event_and_resolve(turn_ended_event)
         
-        # 2. Advance turn in phase manager
-        new_turn_number = self.state.phase_manager.advance_turn()
+        # 2. Advance turn number
+        self.state.turn_number += 1
+        self.state.current_step_id = 0
         
-        # 3. Sync active player with phase manager
-        if self.state.phase_manager.active_player:
-            self.state.active_player = self.state.phase_manager.active_player
+        # 3. Rotate active player
+        if self.state.turn_type == TurnType.SINGLE_PLAYER:
+            self._rotate_active_player()
         
-        #End Game if max turns per player is reached
-        if self.state.phase_manager.game_over():
+        # 4. Check if game is over
+        if self._check_game_over():
             await self.end_game()
             return
         
-        # 4. Enter first phase of new turn
-        first_phase_id = self.state.phase_manager.current_phase_id
-        enter_phase_event = Event(
-            type=PHASE_STARTED,
-            payload={"phase_id": first_phase_id},
-            order=self.stack.get_next_order()
-        )
-        await self._push_event_and_resolve(enter_phase_event)
+        # 5. Reset turn component workflow or create new turn instance
+        # For now, reset workflow state to entry
+        if turn_component.workflow_state:
+            turn_component.workflow_state.reset()
+        
+        # Get turn component definition from ruleset
+        turn_def = self.interpreter.ruleset_ir.get_component_by_id(turn_component.definition_id)
+        
+        if turn_def and hasattr(turn_def, 'workflow_graph'):
+            # Enter turn workflow at entry node
+            success = self.workflow_executor.enter_workflow(
+                turn_component,
+                turn_def
+            )
+            
+            # Get first phase from turn workflow
+            entry_node = turn_def.workflow_graph.get_entry_node()
+            if entry_node:
+                # Find and create phase component for entry node
+                phase_defs = self.interpreter.ruleset_ir.get_phase_components()
+                target_phase_def = None
+                
+                if entry_node.component_definition_id is not None:
+                    # Use explicit component_definition_id
+                    for phase_def in phase_defs:
+                        if phase_def.id == entry_node.component_definition_id:
+                            target_phase_def = phase_def
+                            break
+                else:
+                    # Fallback: match by name for backward compatibility
+                    for phase_def in phase_defs:
+                        if phase_def.name == entry_node.name:
+                            target_phase_def = phase_def
+                            break
+                
+                if target_phase_def:
+                    # Create new phase component instance
+                    new_phase_component = self.state.create_component(target_phase_def)
+                    
+                    # Enter phase workflow
+                    success = self.workflow_executor.enter_workflow(
+                        new_phase_component,
+                        target_phase_def
+                    )
+                    
+                    if success:
+                        self.state.current_phase_component = new_phase_component
+                        # Use definition ID, not instance ID
+                        self.state.current_phase_id = target_phase_def.id
+        else:
+            await self.end_game()
     
     async def end_game(self) -> None:
         """End the game"""
@@ -303,6 +496,9 @@ class MatchActor:
             elif item.kind == StackItemType.REACTION:
                 item = self.stack.pop()
                 await self._resolve_reaction(item)
+        
+        # Stack is empty - check state-based actions
+        await self._check_state_based_actions()
     
     async def _discover_pre_reactions(self, item: StackItem) -> List[Reaction]:
         """Discover pre-reactions for an event without popping it"""
@@ -332,13 +528,42 @@ class MatchActor:
 
         # 2. Apply event to state
         self.state.apply_event(event)
+        
+        # Mark state as dirty for state-based action checking
+        self.state_watcher_engine.mark_dirty()
+
+        if event.type == NEXT_PHASE:
+            # Phase advancement handled by workflow executor
+            await self.advance_phase()
+        if event.type == NEXT_TURN:
+            # Turn advancement handled by workflow executor
+            await self.end_turn()
+        if event.type == PHASE_END_REQUESTED:
+            phase_id = self.state.current_phase_id
+            exit_phase_event = Event(
+                type=PHASE_ENDED,
+                payload={"phase_id": phase_id},
+                order=self.stack.get_next_order()
+            )
+            self.push_event_to_stack(exit_phase_event)
+        if event.type == TURN_END_REQUESTED:
+            turn_number = self.state.turn_number
+            turn_ended_event = Event(
+                type=TURN_ENDED,
+                payload={"turn_number": turn_number},
+                order=self.stack.get_next_order()
+            )
+            self.push_event_to_stack(turn_ended_event)
+        if event.type == END_GAME:
+            self.game_ended = True
+            self.stack.clear()
 
         # 3. Execute rules from actions (if EXECUTE_ACTION event)
         if event.type == EXECUTE_ACTION:
             action_def = self.interpreter._action_cache.get(event.payload.get("action_id"))
             if action_def and action_def.execute_rules:
                 for rule_id in action_def.execute_rules:
-                    new_events = self.interpreter.rule_executor.execute_rule( #TODO use EXECUTE_RULE and RULE_EXECUTED events instead
+                    new_events = self.interpreter.rule_executor.execute_rule(
                         rule_id, event.caused_by, self.state
                     )
                     # Register and push new events to stack (Push events backwards to the stack)
@@ -375,21 +600,65 @@ class MatchActor:
             print(f"‼️ Resolving reaction: {reaction.when} {reaction.effects} {reaction.caused_by}")
 
         # Execute reaction effects
-        for rule_id in reaction.effects:
-            new_events = self.interpreter.rule_executor.execute_rule(
-                rule_id, reaction.caused_by, self.state
-            )
-            # Register and push new events to stack
-            for evt in new_events:
-                event_id = self.event_registry.register(evt)
-                self.stack.push(StackItem(
-                    kind=StackItemType.EVENT,
-                    ref_id=event_id,
-                    created_at_order=self.stack.get_next_order()
-                ))
+        new_events = self.interpreter.effect_interpreter.process_effects(
+            reaction.effects, self.state, reaction.caused_by
+        )
+        # Register and push new events to stack
+        for evt in new_events:
+            self.push_event_to_stack(evt)
+        
+        # Mark state as dirty for state-based action checking
+        self.state_watcher_engine.mark_dirty()
         
         # Clean up reaction from registry after successful resolution
         self.reaction_registry.unregister(item.ref_id)
+    
+    async def _check_state_based_actions(self) -> None:
+        """Check and process state-based actions after stack resolution"""
+        if self.game_ended:
+            return
+        
+        max_iterations = 100  # Prevent infinite loops
+        
+        for _ in range(max_iterations):
+            triggered = self.state_watcher_engine.check_watchers(self.state)
+            if not triggered:
+                break
+            
+            if self.verbose:
+                print(f"🔍 State-based actions triggered: {len(triggered)} watchers")
+            
+            # TODO: Sort by priority when check_priority is implemented
+            for watcher in triggered:
+                await self._execute_watcher_effects(watcher)
+            
+            # Re-resolve any new stack items
+            while not self.stack.is_empty():
+                item = self.stack.pop()
+                if item.kind == StackItemType.EVENT:
+                    await self._resolve_event(item)
+                elif item.kind == StackItemType.REACTION:
+                    await self._resolve_reaction(item)
+    
+    async def _execute_watcher_effects(self, watcher: TriggerDefinition) -> None:
+        """Execute effects from a triggered state watcher"""
+        if self.verbose:
+            print(f"🔍 Executing state watcher effects: {watcher.id}")
+        
+        new_events = self.interpreter.effect_interpreter.process_effects(
+            watcher.effects, self.state, watcher.caused_by
+        )
+        for evt in new_events:
+            self.push_event_to_stack(evt)
+    
+    def push_event_to_stack(self, event: Event) -> None:
+        """Add an event to the stack"""
+        event_id = self.event_registry.register(event)
+        self.stack.push(StackItem(
+            kind=StackItemType.EVENT,
+            ref_id=event_id,
+            created_at_order=self.stack.get_next_order()
+        ))
     
     def get_current_state(self) -> Dict[str, Any]:
         """Get the current game state"""

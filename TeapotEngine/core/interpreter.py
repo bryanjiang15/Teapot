@@ -11,6 +11,7 @@ from .GameState import GameState
 from .Events import Event, Reaction
 from .EventBus import EventBus
 from .Component import Component
+from .EffectInterpreter import EffectInterpreter
 
 
 class RuleExecutor:
@@ -104,6 +105,9 @@ class RulesetInterpreter:
         
         # Initialize rule executor
         self.rule_executor = RuleExecutor(ruleset_ir)
+        
+        # Initialize effect interpreter
+        self.effect_interpreter = EffectInterpreter(ruleset_ir)
     
     def _build_caches(self) -> None:
         """Build lookup caches for performance"""

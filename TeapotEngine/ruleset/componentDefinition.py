@@ -16,6 +16,8 @@ class ComponentType(Enum):
     PLAYER = "player"
     CARD = "card"
     ZONE = "zone"
+    TURN = "turn"
+    PHASE = "phase"
     CUSTOM = "custom"
 
 
