@@ -125,12 +125,14 @@ class RulesetInterpreter:
         subscription_ids = []
         
         for trigger in component.triggers:
-            event_type = trigger.when.get("eventType")
-            if event_type:
-                subscription_id = self.event_bus.subscribe(
-                    event_type, trigger, component.id, component.metadata
-                )
-                subscription_ids.append(subscription_id)
+            # Only register EVENT triggers (STATE_BASED triggers have when=None)
+            if trigger.when is not None:
+                event_type = trigger.when.get("eventType")
+                if event_type:
+                    subscription_id = self.event_bus.subscribe(
+                        event_type, trigger, component.id, component.metadata
+                    )
+                    subscription_ids.append(subscription_id)
         
         return subscription_ids
     
@@ -142,10 +144,14 @@ class RulesetInterpreter:
         """Register system triggers"""
         subscription_ids = []
         for trigger in self.ruleset.system_triggers:
-            subscription_id = self.event_bus.subscribe(
-                trigger.when.get("eventType"), trigger, component.id, component.metadata
-            )
-            subscription_ids.append(subscription_id)
+            # Only register EVENT triggers (STATE_BASED triggers have when=None)
+            if trigger.when is not None:
+                event_type = trigger.when.get("eventType")
+                if event_type:
+                    subscription_id = self.event_bus.subscribe(
+                        event_type, trigger, 0, {}  # System triggers use component_id=0
+                    )
+                    subscription_ids.append(subscription_id)
         return subscription_ids
     
     
@@ -480,7 +486,7 @@ class RulesetInterpreter:
         if not source_component:
             # Fallback: create a minimal component context
             # This shouldn't happen in normal operation
-            return len(trigger.conditions) == 0
+            return trigger.condition is None
         
         # Create evaluation context
         ctx = EvalContext(
@@ -496,9 +502,9 @@ class RulesetInterpreter:
             turn=game_state.turn_number
         )
         
-        # Check conditions using expression evaluation
-        for condition in trigger.conditions:
-            if not condition.evaluate(ctx):
+        # Check condition using expression evaluation
+        if trigger.condition is not None:
+            if not trigger.condition.evaluate(ctx):
                 return False
         
         return True
@@ -519,7 +525,7 @@ class RulesetInterpreter:
             source_component = game_state.get_game_component_instance()
         
         if not source_component:
-            return len(trigger.conditions) == 0
+            return trigger.condition is None
         
         # Create evaluation context with source component
         ctx = EvalContext(
@@ -535,9 +541,9 @@ class RulesetInterpreter:
             turn=game_state.turn_number
         )
         
-        # Evaluate conditions in context of the source object
-        for condition in trigger.conditions:
-            if not condition.evaluate(ctx):
+        # Evaluate condition in context of the source object
+        if trigger.condition is not None:
+            if not trigger.condition.evaluate(ctx):
                 return False
         
         return True

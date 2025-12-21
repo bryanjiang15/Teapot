@@ -36,7 +36,9 @@ class EventBus:
     def register_system_triggers(self) -> None:
         """Register system triggers"""
         for trigger in SYSTEM_TRIGGERS:
-            self.subscribe(trigger.when.get("eventType"), trigger, 0, {})
+            # Only register EVENT triggers (STATE_BASED triggers have when=None)
+            if trigger.when is not None:
+                self.subscribe(trigger.when.get("eventType"), trigger, 0, {})
     
     def subscribe(self, event_type: str, trigger: TriggerDefinition, component_id: int, 
                   metadata: Optional[Dict[str, Any]] = None) -> int:
@@ -157,23 +159,37 @@ class EventBus:
     
     def _trigger_matches(self, trigger: TriggerDefinition, event: Event, game_state) -> bool:
         """Check if trigger matches event (filters and conditions)"""
-        # Match filters
-        filters = trigger.when.get("filters", {})
-        for key, value in filters.items():
-            if event.payload.get(key) != value:
-                return False
+        # Match filters (only if when is defined - STATE_BASED triggers have when=None)
+        if trigger.when is not None:
+            filters = trigger.when.get("filters", {})
+            for key, value in filters.items():
+                if event.payload.get(key) != value:
+                    return False
         
-        # Check conditions
-        for condition in trigger.conditions:
-            if not self._evaluate_condition(condition, game_state, event):
+        # Check condition if present
+        if trigger.condition is not None:
+            if not self._evaluate_condition(trigger.condition, game_state, event):
                 return False
         
         return True
     
-    def _evaluate_condition(self, condition: Dict[str, Any], game_state, event: Event) -> bool:
-        """Evaluate a single condition (simplified for now)"""
-        # This is a placeholder - in a real implementation, this would
-        # use the same condition evaluation logic as the interpreter
+    def _evaluate_condition(self, condition, game_state, event: Event) -> bool:
+        """Evaluate a condition predicate"""
+        # If condition has an evaluate method (Predicate), use it
+        if hasattr(condition, 'evaluate'):
+            from TeapotEngine.ruleset.ExpressionModel import EvalContext
+            ctx = EvalContext(
+                source=None,
+                event=None,
+                targets=[],
+                game=game_state,
+                phase=str(getattr(game_state, 'current_phase', 0)),
+                turn=getattr(game_state, 'turn_number', 1)
+            )
+            try:
+                return condition.evaluate(ctx)
+            except Exception:
+                return False
         return True
     
     def _create_reaction_from_trigger(self, trigger: TriggerDefinition, component_id: int, 
@@ -184,7 +200,7 @@ class EventBus:
         
         return Reaction(
             when=trigger.when,
-            conditions=trigger.conditions,
+            condition=trigger.condition,
             effects=trigger.effects,
             timing=trigger.timing,
             caused_by=caused_by

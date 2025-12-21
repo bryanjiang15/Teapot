@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Any, Iterable, List, Literal, Optional, Protocol, Sequence, Union, Tuple, TYPE_CHECKING, Annotated
+from typing import Callable, Dict, Any, Iterable, List, Literal, Optional, Protocol, Sequence, Union, Tuple, TYPE_CHECKING, Annotated
 from pydantic import BaseModel, Field, ConfigDict
 
 if TYPE_CHECKING:
@@ -110,6 +110,28 @@ class Gt(BaseModel):
         yield from self.a.dependencies()
         yield from self.b.dependencies()
 
+class Eq(BaseModel):
+    kind: Literal["pred.eq"]
+    a: Num
+    b: Num
+
+    def evaluate(self, ctx: EvalContext) -> bool:
+        return self.a.evaluate(ctx) == self.b.evaluate(ctx)
+
+    def dependencies(self):
+        yield from self.a.dependencies()
+        yield from self.b.dependencies()
+
+class Func(BaseModel):
+    kind: Literal["pred.func"]
+    func: Callable[[EvalContext], bool]
+
+    def evaluate(self, ctx: EvalContext) -> bool:
+        return self.func(ctx)
+
+    def dependencies(self):
+        return () #TODO: Add dependencies func
+
 class And(BaseModel):
     kind: Literal["pred.and"]
     all: List["Predicate"]
@@ -124,7 +146,7 @@ class And(BaseModel):
         for p in self.all:
             yield from p.dependencies()
 
-Predicate = Annotated[Union[Gt, And], Field(discriminator="kind")]
+Predicate = Annotated[Union[Gt, Eq, And], Field(discriminator="kind")]
 
 # -------------------------
 # Selector Expressions
