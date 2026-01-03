@@ -8,7 +8,7 @@ from enum import Enum
 from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TriggerDefinition
 from TeapotEngine.ruleset.ComponentDefinition import ComponentDefinition, ComponentType
 from TeapotEngine.ruleset.models.ResourceModel import Resource, ResourceDefinition
-from TeapotEngine.ruleset.workflow.WorkflowGraph import WorkflowState, WorkflowNode
+from TeapotEngine.ruleset.workflow.WorkflowGraph import WorkflowGraph, WorkflowState, WorkflowNode, WorkflowEdge
 
 
 class ComponentStatus(Enum):
@@ -44,19 +44,14 @@ class Component:
     resources_by_instance_id: Dict[int, Resource] = field(default_factory=dict)
     resource_instance_ids_by_def_id: Dict[int, List[int]] = field(default_factory=dict)
     
-    # Workflow state tracking
-    workflow_state: Optional[WorkflowState] = field(default_factory=WorkflowState)
+    # Workflow - encapsulates both graph structure and current state
+    workflow: Optional[WorkflowState] = None
     
     def __post_init__(self):
         """Initialize component after creation"""
         # Copy triggers from definition if not already set
         if not self.triggers:
             self.triggers = []
-        
-        # Initialize workflow state if component has a workflow graph
-        if self.workflow_state is None:
-            from TeapotEngine.ruleset.workflow.WorkflowGraph import WorkflowState
-            self.workflow_state = WorkflowState()
     
     def add_trigger(self, trigger: TriggerDefinition) -> None:
         """Add a trigger to this component instance"""
@@ -118,43 +113,40 @@ class Component:
         return self.metadata.get(key, default)
     
     # Workflow navigation methods
-    def get_current_workflow_node(self, definition: Optional[ComponentDefinition] = None) -> Optional[WorkflowNode]:
-        """Get the current workflow node for this component instance
-        
-        Args:
-            definition: Optional component definition to get workflow graph from.
-                       If not provided, will need to be looked up externally.
+    def get_current_workflow_node(self) -> Optional[WorkflowNode]:
+        """Get the current workflow node from this component's workflow.
         
         Returns:
-            Current WorkflowNode if workflow state is active, None otherwise
+            Current WorkflowNode if workflow is active, None otherwise
         """
-        if not self.workflow_state or not self.workflow_state.current_node_id:
+        if not self.workflow:
             return None
-        
-        if definition and hasattr(definition, 'workflow_graph') and definition.workflow_graph:
-            return definition.workflow_graph.get_node(self.workflow_state.current_node_id)
-        
-        return None
+        return self.workflow.get_current_node()
     
-    def can_transition_to(self, target_node_id: str, definition: Optional[ComponentDefinition] = None) -> bool:
+    def get_outgoing_edges(self) -> List[WorkflowEdge]:
+        """Get all outgoing edges from the current workflow node.
+        
+        Returns:
+            List of WorkflowEdge objects, empty if no workflow or current node
+        """
+        if not self.workflow:
+            return []
+        return self.workflow.get_outgoing_edges()
+    
+    def can_transition_to(self, target_node_id: str) -> bool:
         """Check if this component can transition to a target node
         
         Args:
             target_node_id: ID of the target node
-            definition: Optional component definition to get workflow graph from
         
         Returns:
             True if transition is possible, False otherwise
         """
-        if not self.workflow_state or not self.workflow_state.current_node_id:
-            return False
-        
-        if not definition or not hasattr(definition, 'workflow_graph') or not definition.workflow_graph:
+        if not self.workflow or not self.workflow.current_node_id:
             return False
         
         # Check if there's an edge from current node to target node
-        outgoing_edges = definition.workflow_graph.get_outgoing_edges(self.workflow_state.current_node_id)
-        for edge in outgoing_edges:
+        for edge in self.workflow.get_outgoing_edges():
             if edge.to_node_id == target_node_id:
                 # If edge has no condition, it's always valid
                 if edge.condition is None:
@@ -171,16 +163,15 @@ class Component:
         Args:
             target_node_id: ID of the target node to transition to
         """
-        if not self.workflow_state:
-            from TeapotEngine.ruleset.workflow.WorkflowGraph import WorkflowState
-            self.workflow_state = WorkflowState()
+        if not self.workflow:
+            raise ValueError("Cannot transition: component has no workflow")
         
-        self.workflow_state.enter_node(target_node_id)
+        self.workflow.enter_node(target_node_id)
     
     def reset_workflow(self) -> None:
-        """Reset the workflow state"""
-        if self.workflow_state:
-            self.workflow_state.reset()
+        """Reset the workflow state (position and history, keeps graph)"""
+        if self.workflow:
+            self.workflow.reset()
 
 
 class ComponentManager:
@@ -200,6 +191,11 @@ class ComponentManager:
         """Create a new component instance from a definition"""
         component_id = self._next_component_id
         self._next_component_id += 1
+
+        # Create workflow state from definition's workflow graph if present
+        workflow = None
+        if hasattr(definition, 'workflow_graph') and definition.workflow_graph:
+            workflow = WorkflowState.from_graph(definition.workflow_graph)
         
         # Create component instance
         component = Component(
@@ -210,7 +206,8 @@ class ComponentManager:
             properties=properties or {},
             zone_component_id=zone_component_id,
             controller_component_id=controller_component_id,
-            triggers=definition.triggers.copy()  # Copy triggers from definition
+            triggers=definition.triggers.copy(),  # Copy triggers from definition
+            workflow=workflow,
         )
         
         # Register component

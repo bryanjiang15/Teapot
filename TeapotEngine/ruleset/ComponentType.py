@@ -7,6 +7,8 @@ Specific component types for the component-based trigger system
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
+from TeapotEngine.ruleset.rule_definitions.EffectDefinition import EffectDefinition
+
 from .workflow import WorkflowGraph
 from .ComponentDefinition import ComponentDefinition, ComponentType
 
@@ -16,8 +18,8 @@ class GameComponentDefinition(ComponentDefinition):
     component_type: ComponentType = ComponentType.GAME
     
     # Game-specific properties
-    phases: List[Dict[str, Any]] = Field(default_factory=list)
     global_zones: List[Dict[str, Any]] = Field(default_factory=list)
+    workflow_graph: Optional[WorkflowGraph] = None
     
     # Game rules
     max_players: int = 2
@@ -26,13 +28,9 @@ class GameComponentDefinition(ComponentDefinition):
     def __init__(self, **data):
         super().__init__(**data)
         self.component_type = ComponentType.GAME
-    
-    def get_phase(self, phase_id: int) -> Optional[Dict[str, Any]]:
-        """Get a phase definition by ID"""
-        for phase in self.phases:
-            if phase.get("id") == phase_id:
-                return phase
-        return None
+
+        if "workflow_graph" in data and isinstance(data["workflow_graph"], dict):
+            self.workflow_graph = WorkflowGraph.from_dict(data["workflow_graph"])
     
     def get_global_zone(self, zone_id: int) -> Optional[Dict[str, Any]]:
         """Get a global zone definition by ID"""
@@ -44,7 +42,6 @@ class GameComponentDefinition(ComponentDefinition):
     def get_component_specific_data(self) -> Dict[str, Any]:
         """Get game-specific data"""
         return {
-            "phases": self.phases,
             "global_zones": self.global_zones,
             "max_players": self.max_players,
             "win_conditions": self.win_conditions,
@@ -54,10 +51,6 @@ class GameComponentDefinition(ComponentDefinition):
         """Validate game component rules"""
         # Check that max_players is positive
         if self.max_players <= 0:
-            return False
-        
-        # Check that we have at least one phase
-        if not self.phases:
             return False
         
         # Check that win conditions are valid
@@ -242,7 +235,6 @@ class TurnComponentDefinition(ComponentDefinition):
         self.component_type = ComponentType.TURN
         # Deserialize workflow_graph if present
         if "workflow_graph" in data and isinstance(data["workflow_graph"], dict):
-            from .workflow.WorkflowGraph import WorkflowGraph
             self.workflow_graph = WorkflowGraph.from_dict(data["workflow_graph"])
     
     def get_component_specific_data(self) -> Dict[str, Any]:
@@ -288,7 +280,6 @@ class PhaseComponentDefinition(ComponentDefinition):
         self.component_type = ComponentType.PHASE
         # Deserialize workflow_graph if present
         if "workflow_graph" in data and isinstance(data["workflow_graph"], dict):
-            from .workflow.WorkflowGraph import WorkflowGraph
             self.workflow_graph = WorkflowGraph.from_dict(data["workflow_graph"])
     
     def get_component_specific_data(self) -> Dict[str, Any]:
@@ -314,6 +305,59 @@ class PhaseComponentDefinition(ComponentDefinition):
         
         return True
 
+
+class ProcedureComponentDefinition(ComponentDefinition):
+    """Procedure component that executes effects immediately when stepped into.
+    The procedure is atomic - all actions in the workflow are executed in order, and the procedure is considered complete when the workflow is complete.
+    
+    Unlike Phase/Turn components, procedures don't have child workflows.
+    They represent atomic actions like "draw a card" or "gain 1 life".
+    """
+    
+    component_type: ComponentType = ComponentType.PROCEDURE
+
+    
+    workflow_graph: Optional["WorkflowGraph"] = None
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.component_type = ComponentType.PROCEDURE
+    
+    def get_component_specific_data(self) -> Dict[str, Any]:
+        """Get procedure-specific data"""
+        return {
+            "workflow_graph": self.workflow_graph.to_dict() if self.workflow_graph else None
+        }
+    
+    def validate_component(self) -> bool:
+        """Validate procedure component rules"""
+        # Procedures are always valid by default
+        return True
+
+class ActionComponentDefinition(ComponentDefinition):
+    """Action component that executes effects immediately when stepped into.
+    The action is atomic - all actions in the workflow are executed in order, and the action is considered complete when the workflow is complete.
+    Unlike Procedure components, actions can have child workflows.
+    """
+    
+    component_type: ComponentType = ComponentType.ACTION
+
+    effects: List[EffectDefinition] = Field(default_factory=list)
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.component_type = ComponentType.ACTION
+    
+    def get_component_specific_data(self) -> Dict[str, Any]:
+        """Get action-specific data"""
+        return {
+            "effects": self.effects
+        }
+    
+    def validate_component(self) -> bool:
+        """Validate action component rules"""
+        # Actions are always valid by default
+        return True
 
 class CustomComponentDefinition(ComponentDefinition):
     """Custom component for game-specific components"""

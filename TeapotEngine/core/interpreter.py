@@ -9,7 +9,6 @@ from TeapotEngine.ruleset.ExpressionModel import EvalContext, Predicate, Selecto
 from TeapotEngine.ruleset.system_models.SystemEvent import *
 from .GameState import GameState
 from .Events import Event, Reaction
-from .EventBus import EventBus
 from .Component import Component
 from .EffectInterpreter import EffectInterpreter
 
@@ -97,9 +96,6 @@ class RulesetInterpreter:
         self._phase_cache: Dict[int, PhaseDefinition] = {}
         self._rule_cache: Dict[int, RuleDefinition] = {}
         
-        # Event bus for trigger management
-        self.event_bus = EventBus()
-        
         # Build caches for fast lookup
         self._build_caches()
         
@@ -119,40 +115,6 @@ class RulesetInterpreter:
         
         for rule in self.ruleset.rules:
             self._rule_cache[rule.id] = rule
-    
-    def register_component_triggers(self, component: Component) -> List[int]:
-        """Register all triggers for a component instance"""
-        subscription_ids = []
-        
-        for trigger in component.triggers:
-            # Only register EVENT triggers (STATE_BASED triggers have when=None)
-            if trigger.when is not None:
-                event_type = trigger.when.get("eventType")
-                if event_type:
-                    subscription_id = self.event_bus.subscribe(
-                        event_type, trigger, component.id, component.metadata
-                    )
-                    subscription_ids.append(subscription_id)
-        
-        return subscription_ids
-    
-    def unregister_component_triggers(self, component_id: int) -> List[int]:
-        """Unregister all triggers for a component instance"""
-        return self.event_bus.unsubscribe_all_from_component(component_id)
-    
-    def register_system_triggers(self) -> List[int]:
-        """Register system triggers"""
-        subscription_ids = []
-        for trigger in self.ruleset.system_triggers:
-            # Only register EVENT triggers (STATE_BASED triggers have when=None)
-            if trigger.when is not None:
-                event_type = trigger.when.get("eventType")
-                if event_type:
-                    subscription_id = self.event_bus.subscribe(
-                        event_type, trigger, 0, {}  # System triggers use component_id=0
-                    )
-                    subscription_ids.append(subscription_id)
-        return subscription_ids
     
     
     def get_available_actions(self, game_state: GameState, player_id: str) -> List[Dict[str, Any]]:
@@ -453,11 +415,6 @@ class RulesetInterpreter:
                 caused_by_objects.append({"object_type": "player", "object_id": game_state.active_player})
         
         return caused_by_objects
-    
-    def discover_reactions(self, event: Event, game_state: GameState) -> List[Reaction]:
-        """Find all triggers that match an event using EventBus"""
-        return self.event_bus.dispatch(event, game_state)
-    
     
     def _trigger_matches(self, trigger, event: Event, game_state: GameState) -> bool:
         """Check if trigger matches event (filters and conditions only)"""

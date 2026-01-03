@@ -62,7 +62,10 @@ class RulesetIR(BaseModel):
             for comp_data in data['component_definitions']:
                 # Deserialize based on component_type
                 component = cls._deserialize_component(comp_data)
-                component_definitions.append(component)
+                if isinstance(component, GameComponentDefinition):
+                    data['game_component'] = component
+                else:
+                    component_definitions.append(component)
             data['component_definitions'] = component_definitions
         
         return cls(**data)

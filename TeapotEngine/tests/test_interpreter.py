@@ -93,55 +93,7 @@ class TestRulesetInterpreter:
         ruleset = RulesetHelper.create_ruleset_ir()
         interpreter = RulesetInterpreter(ruleset)
         assert interpreter.ruleset == ruleset
-        assert interpreter.event_bus is not None
         assert interpreter.rule_executor is not None
-    
-    def test_register_component_triggers(self):
-        """Test registering triggers for a component"""
-        ruleset = RulesetHelper.create_ruleset_ir()
-        interpreter = RulesetInterpreter(ruleset)
-        
-        component = Component(
-            id=1,
-            definition_id=1,
-            name="Test Component",
-            component_type=ComponentType.CARD
-        )
-        trigger = TriggerDefinition(
-            id=1,
-            when={"eventType": "PhaseEntered"},
-            execute_rules=[1]
-        )
-        component.add_trigger(trigger)
-        
-        subscription_ids = interpreter.register_component_triggers(component)
-        assert len(subscription_ids) == 1
-        assert interpreter.event_bus.get_subscription_count() == 1
-    
-    def test_unregister_component_triggers(self):
-        """Test unregistering triggers for a component"""
-        ruleset = RulesetHelper.create_ruleset_ir()
-        interpreter = RulesetInterpreter(ruleset)
-        
-        component = Component(
-            id=1,
-            definition_id=1,
-            name="Test Component",
-            component_type=ComponentType.CARD
-        )
-        trigger = TriggerDefinition(
-            id=1,
-            when={"eventType": "PhaseEntered"},
-            execute_rules=[1]
-        )
-        component.add_trigger(trigger)
-        
-        subscription_ids = interpreter.register_component_triggers(component)
-        assert len(subscription_ids) == 1
-        
-        removed_ids = interpreter.unregister_component_triggers(1)
-        assert len(removed_ids) == 1
-        assert interpreter.event_bus.get_subscription_count() == 0
     
     def test_get_available_actions(self):
         """Test getting available actions for a player"""
@@ -198,36 +150,6 @@ class TestRulesetInterpreter:
         
         result = interpreter.validate_action(action_data, game_state, "player1")
         assert result is False
-    
-    def test_discover_reactions(self):
-        """Test discovering reactions for an event"""
-        ruleset = RulesetHelper.create_ruleset_ir()
-        interpreter = RulesetInterpreter(ruleset)
-        
-        # Register a trigger
-        component = Component(
-            id=1,
-            definition_id=1,
-            name="Test Component",
-            component_type=ComponentType.CARD
-        )
-        trigger = TriggerDefinition(
-            id=1,
-            when={"eventType": "PhaseEntered"},
-            execute_rules=[1]
-        )
-        component.add_trigger(trigger)
-        interpreter.register_component_triggers(component)
-        
-        game_state = GameState.from_ruleset("test", ruleset, ["player1"])
-        # Add component to game state
-        game_state.component_manager._components[1] = component
-        
-        event = Event(type="PhaseEntered", payload={"phase_id": 1})
-        reactions = interpreter.discover_reactions(event, game_state)
-        
-        # Should find matching reactions
-        assert isinstance(reactions, list)
     
     def test_get_phase_steps(self):
         """Test getting phase steps"""

@@ -22,8 +22,7 @@ class GameState:
     active_player: str
     
     # Turn/Phase component tracking (moved from PhaseManager)
-    current_turn_component: Optional[Component] = None
-    current_phase_component: Optional[Component] = None
+    game_component: Optional[Component] = None
     turn_type: TurnType = TurnType.SINGLE_PLAYER
     player_ids: List[str] = field(default_factory=list)
     current_phase_id: int = 0
@@ -100,56 +99,6 @@ class GameState:
         
         # Load resource definitions into state registry
         state.resource_definitions = {rd.id: rd for rd in ruleset.get_all_resources()}
-        
-        # Initialize turn/phase component instances
-        turn_components = ruleset.get_turn_components()
-        phase_components = ruleset.get_phase_components()
-        
-        if not turn_components:
-            raise ValueError("Ruleset must contain at least one turn component definition")
-        
-        # Create turn component instance
-        turn_def = turn_components[0]  # Use first turn component definition
-        turn_component = state.create_component(turn_def)
-        
-        # Store turn definition ID in component metadata for later lookup
-        turn_component.update_metadata("turn_definition_id", turn_def.id)
-        state.current_turn_component = turn_component
-        
-        # Get turn type from component definition
-        turn_type_str = getattr(turn_def, 'turn_type', 'single_player')
-        state.turn_type = TurnType.SINGLE_PLAYER if turn_type_str == "single_player" else TurnType.SYNCHRONOUS
-        
-        # Create initial phase component instance
-        # Find the entry phase from turn workflow graph
-        initial_phase_component = None
-        if hasattr(turn_def, 'workflow_graph') and turn_def.workflow_graph:
-            entry_node = turn_def.workflow_graph.get_entry_node()
-            if entry_node and phase_components:
-                # Find phase component definition using component_definition_id
-                target_phase_def = None
-                if entry_node.component_definition_id is not None:
-                    # Use explicit component_definition_id
-                    for phase_def in phase_components:
-                        if phase_def.id == entry_node.component_definition_id:
-                            target_phase_def = phase_def
-                            break
-                
-                if target_phase_def:
-                    initial_phase_component = state.create_component(target_phase_def)
-                    initial_phase_component.update_metadata("phase_id", target_phase_def.id)
-                    # Initialize workflow state - enter at entry node
-                    if hasattr(target_phase_def, 'workflow_graph') and target_phase_def.workflow_graph:
-                        phase_entry = target_phase_def.workflow_graph.get_entry_node()
-                        if phase_entry and initial_phase_component.workflow_state:
-                            initial_phase_component.workflow_state.enter_node(phase_entry.id)
-        
-        state.current_phase_component = initial_phase_component
-        
-        # Sync current_phase_id from phase component
-        if initial_phase_component:
-            phase_id = initial_phase_component.get_metadata("phase_id") or initial_phase_component.definition_id
-            state.current_phase_id = phase_id
         
         return state
     
@@ -384,14 +333,11 @@ class GameState:
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert state to dictionary for serialization"""
-        current_phase_name = None
-        if self.current_phase_component:
-            current_phase_name = self.current_phase_component.name
+
         
         return {
             "match_id": self.match_id,
             "active_player": self.active_player,
-            "current_phase": current_phase_name or f"phase_{self.current_phase}",
             "current_step": self.current_step,
             "turn_number": self.turn_number,
             "players": {pid: player.model_dump() for pid, player in self.players.items()},

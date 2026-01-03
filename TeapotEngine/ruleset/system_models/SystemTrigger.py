@@ -38,9 +38,4 @@ def check_if_phase_can_exit(ctx: EvalContext) -> bool:
 SYSTEM_STATE_WATCHERS = [
     # Currently empty - phase exit is handled by check_if_phase_can_exit() in MatchActor
     # State watchers can be added to GameComponent or other components via their triggers list
-    TriggerDefinition(
-        trigger_type=TriggerType.STATE_BASED,
-        condition=Func(
-        )
-    )
 ]

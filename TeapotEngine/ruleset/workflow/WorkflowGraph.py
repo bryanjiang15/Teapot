@@ -32,6 +32,7 @@ class WorkflowNode:
     name: str  # Human-readable name
     node_type: NodeType = NodeType.INTERMEDIATE
     component_definition_id: Optional[int] = None  # Links to child component definition
+    component_id: Optional[int] = None  # Links to the component instance
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -44,6 +45,8 @@ class WorkflowNode:
         }
         if self.component_definition_id is not None:
             result["component_definition_id"] = self.component_definition_id
+        if self.component_id is not None:
+            result["component_id"] = self.component_id
         return result
     
     @classmethod
@@ -98,41 +101,73 @@ class WorkflowEdge(BaseModel):
 
 
 class WorkflowGraph(BaseModel):
-    """Container for workflow graph nodes and edges"""
-    nodes: List[WorkflowNode] = Field(default_factory=list)
+    """Container for workflow graph nodes and edges.
+    
+    The graph always contains implicit start and end nodes with reserved IDs.
+    The 'nodes' list only contains intermediate nodes (the "middle" of the workflow).
+    Edges can reference the start node (START_NODE_ID) as source and 
+    the end node (END_NODE_ID) as target.
+    """
+    # Reserved node IDs for implicit start and end nodes
+    START_NODE_ID: str = "__start__"
+    END_NODE_ID: str = "__end__"
+    
+    nodes: List[WorkflowNode] = Field(default_factory=list)  # Only intermediate nodes
     edges: List[WorkflowEdge] = Field(default_factory=list)
-    entry_node_id: Optional[str] = None  # ID of the entry node
-    exit_node_ids: List[str] = Field(default_factory=list)  # IDs of exit nodes
+    
+    model_config = {"arbitrary_types_allowed": True}
+    
+    @property
+    def start_node(self) -> WorkflowNode:
+        """Get the implicit start node (always exists)"""
+        return WorkflowNode(
+            id=self.START_NODE_ID,
+            name="Start",
+            node_type=NodeType.START
+        )
+    
+    @property
+    def end_node(self) -> WorkflowNode:
+        """Get the implicit end node (always exists)"""
+        return WorkflowNode(
+            id=self.END_NODE_ID,
+            name="End",
+            node_type=NodeType.END
+        )
+    
+    @property
+    def all_nodes(self) -> List[WorkflowNode]:
+        """Get all nodes including implicit start and end nodes"""
+        return [self.start_node] + self.nodes + [self.end_node]
     
     def get_node(self, node_id: str) -> Optional[WorkflowNode]:
-        """Get a node by ID"""
+        """Get a node by ID (includes implicit start/end nodes)"""
+        if node_id == self.START_NODE_ID:
+            return self.start_node
+        if node_id == self.END_NODE_ID:
+            return self.end_node
         for node in self.nodes:
             if node.id == node_id:
                 return node
         return None
     
-    def get_entry_node(self) -> Optional[WorkflowNode]:
-        """Get the entry node"""
-        if self.entry_node_id:
-            return self.get_node(self.entry_node_id)
-        # Fallback: find first entry-type node
-        for node in self.nodes:
-            if node.node_type == NodeType.START:
-                return node
-        return None
+    def get_entry_node(self) -> WorkflowNode:
+        """Get the entry node (always the implicit start node)"""
+        return self.start_node
     
-    def get_exit_nodes(self) -> List[WorkflowNode]:
-        """Get all exit nodes"""
-        exit_nodes = []
-        for node_id in self.exit_node_ids:
-            node = self.get_node(node_id)
-            if node:
-                exit_nodes.append(node)
-        # Also check for exit-type nodes
-        for node in self.nodes:
-            if node.node_type == NodeType.END and node not in exit_nodes:
-                exit_nodes.append(node)
-        return exit_nodes
+    def get_exit_node(self) -> WorkflowNode:
+        """Get the exit node (always the implicit end node)"""
+        return self.end_node
+    
+    def get_first_nodes(self) -> List[WorkflowNode]:
+        """Get the first intermediate nodes (nodes connected from start)"""
+        first_node_ids = {edge.to_node_id for edge in self.edges if edge.from_node_id == self.START_NODE_ID}
+        return [node for node in self.nodes if node.id in first_node_ids]
+    
+    def get_last_nodes(self) -> List[WorkflowNode]:
+        """Get the last intermediate nodes (nodes connected to end)"""
+        last_node_ids = {edge.from_node_id for edge in self.edges if edge.to_node_id == self.END_NODE_ID}
+        return [node for node in self.nodes if node.id in last_node_ids]
     
     def get_outgoing_edges(self, node_id: str) -> List[WorkflowEdge]:
         """Get all outgoing edges from a node"""
@@ -144,26 +179,35 @@ class WorkflowGraph(BaseModel):
     
     def validate(self) -> tuple[bool, Optional[str]]:
         """Validate the workflow graph structure"""
-        if not self.nodes:
-            return False, "Workflow graph must have at least one node"
-        
-        # Check that entry node exists
-        entry_node = self.get_entry_node()
-        if not entry_node:
-            return False, "Workflow graph must have an entry node"
+        # Build set of all valid node IDs (including implicit start/end)
+        node_ids = {node.id for node in self.nodes}
+        node_ids.add(self.START_NODE_ID)
+        node_ids.add(self.END_NODE_ID)
         
         # Check that all edges reference valid nodes
-        node_ids = {node.id for node in self.nodes}
         for edge in self.edges:
             if edge.from_node_id not in node_ids:
                 return False, f"Edge references invalid source node: {edge.from_node_id}"
             if edge.to_node_id not in node_ids:
                 return False, f"Edge references invalid target node: {edge.to_node_id}"
         
-        # Check that exit nodes exist
-        for exit_id in self.exit_node_ids:
-            if exit_id not in node_ids:
-                return False, f"Exit node ID not found: {exit_id}"
+        # Check that start node has at least one outgoing edge (if there are intermediate nodes)
+        if self.nodes:
+            start_edges = self.get_outgoing_edges(self.START_NODE_ID)
+            if not start_edges:
+                return False, "Start node must have at least one outgoing edge when intermediate nodes exist"
+            
+            # Check that end node has at least one incoming edge
+            end_edges = self.get_incoming_edges(self.END_NODE_ID)
+            if not end_edges:
+                return False, "End node must have at least one incoming edge when intermediate nodes exist"
+        
+        # Check that no edges go INTO start or OUT OF end
+        for edge in self.edges:
+            if edge.to_node_id == self.START_NODE_ID:
+                return False, "No edges can target the start node"
+            if edge.from_node_id == self.END_NODE_ID:
+                return False, "No edges can originate from the end node"
         
         return True, None
     
@@ -171,9 +215,7 @@ class WorkflowGraph(BaseModel):
         """Convert to dictionary for serialization"""
         return {
             "nodes": [node.to_dict() for node in self.nodes],
-            "edges": [edge.to_dict() for edge in self.edges],
-            "entry_node_id": self.entry_node_id,
-            "exit_node_ids": self.exit_node_ids
+            "edges": [edge.to_dict() for edge in self.edges]
         }
     
     @classmethod
@@ -183,18 +225,41 @@ class WorkflowGraph(BaseModel):
         edges = [WorkflowEdge.from_dict(e) for e in data.get("edges", [])]
         return cls(
             nodes=nodes,
-            edges=edges,
-            entry_node_id=data.get("entry_node_id"),
-            exit_node_ids=data.get("exit_node_ids", [])
+            edges=edges
         )
 
 
 @dataclass
 class WorkflowState:
-    """Tracks the current state of a workflow instance"""
+    """Tracks the current state of a workflow instance.
+    
+    Encapsulates both the workflow graph structure and the current position
+    within that graph. This provides a self-contained workflow instance.
+    """
+    graph: "WorkflowGraph"  # The workflow structure
     current_node_id: Optional[str] = None  # Current node in the workflow
     history: List[str] = field(default_factory=list)  # History of visited nodes
     metadata: Dict[str, Any] = field(default_factory=dict)  # Instance-specific metadata
+    
+    def get_current_node(self) -> Optional[WorkflowNode]:
+        """Get the current workflow node.
+        
+        Returns:
+            Current WorkflowNode if position is set, None otherwise
+        """
+        if not self.current_node_id:
+            return None
+        return self.graph.get_node(self.current_node_id)
+    
+    def get_outgoing_edges(self) -> List[WorkflowEdge]:
+        """Get all outgoing edges from the current node.
+        
+        Returns:
+            List of WorkflowEdge objects from current node, empty if no current node
+        """
+        if not self.current_node_id:
+            return []
+        return self.graph.get_outgoing_edges(self.current_node_id)
     
     def enter_node(self, node_id: str) -> None:
         """Enter a new node"""
@@ -211,7 +276,7 @@ class WorkflowState:
         return previous
     
     def reset(self) -> None:
-        """Reset workflow state"""
+        """Reset workflow state (position and history, keeps graph)"""
         self.current_node_id = None
         self.history.clear()
         self.metadata.clear()
@@ -219,6 +284,7 @@ class WorkflowState:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
         return {
+            "graph": self.graph.to_dict(),
             "current_node_id": self.current_node_id,
             "history": self.history,
             "metadata": self.metadata
@@ -227,9 +293,25 @@ class WorkflowState:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "WorkflowState":
         """Create from dictionary"""
+        graph = WorkflowGraph.from_dict(data.get("graph", {}))
         return cls(
+            graph=graph,
             current_node_id=data.get("current_node_id"),
             history=data.get("history", []),
             metadata=data.get("metadata", {})
         )
+    
+    @classmethod
+    def from_graph(cls, graph: "WorkflowGraph") -> "WorkflowState":
+        """Create a new workflow state from a graph, starting at the start node.
+        
+        Args:
+            graph: WorkflowGraph to create state for
+            
+        Returns:
+            New WorkflowState positioned at the start node
+        """
+        state = cls(graph=graph)
+        state.enter_node(graph.START_NODE_ID)
+        return state
 

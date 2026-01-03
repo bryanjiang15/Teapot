@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: teapot-engine
 Version: 0.1.0
 Summary: A flexible, ruleset-driven game engine for TCG games
@@ -26,6 +26,16 @@ Requires-Dist: pytest-asyncio>=0.18.0; extra == "dev"
 Requires-Dist: black>=21.0.0; extra == "dev"
 Requires-Dist: flake8>=3.9.0; extra == "dev"
 Requires-Dist: mypy>=0.910; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # TeapotEngine
 
@@ -159,34 +169,8 @@ Game rules are defined using a JSON-based intermediate representation:
 
 ## Installation
 
-### Development Installation
-
 ```bash
-# Navigate to TeapotEngine directory
-cd TeapotEngine
-
-# Install in development mode
-python install_dev.py
-
-# Or manually:
 pip install -e .
-```
-
-### Running Tests
-
-```bash
-# Run the test suite
-python run_tests.py
-
-# Or manually:
-pytest tests/ -v
-```
-
-### Running Example
-
-```bash
-# Run the example script
-python example.py
 ```
 
 ## Development
@@ -203,16 +187,6 @@ black teapot_engine/
 
 # Type checking
 mypy teapot_engine/
-```
-
-## Troubleshooting
-
-If you get import errors, make sure you're in the TeapotEngine directory and the package is installed:
-
-```bash
-cd TeapotEngine
-python install_dev.py
-python example.py
 ```
 
 ## License

@@ -18,7 +18,9 @@ class ComponentType(Enum):
     ZONE = "zone"
     TURN = "turn"
     PHASE = "phase"
+    PROCEDURE = "procedure"  # Action node that executes effects immediately
     CUSTOM = "custom"
+    ACTION = "action"  # Action node that executes effects immediately
 
 
 class ComponentDefinition(BaseModel, ABC):

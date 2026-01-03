@@ -7,6 +7,25 @@ from TeapotEngine.ruleset.IR import RulesetIR
 
 class RulesetHelper:
     """Helper class to generate minimal rulesets for testing"""
+
+    @staticmethod
+    def _get_default_game_component() -> Dict[str, Any]:
+        """Get default game component definition"""
+        return {
+            "id": 1,
+            "name": "Default Game",
+            "component_type": "game",
+            "workflow_graph": {
+                "nodes": [
+                    {"id": "start", "name": "Start", "node_type": "start", "component_definition_id": 100},
+                    {"id": "end", "name": "End", "node_type": "end"}
+                ],
+                "edges": [
+                    {"from_node_id": "__start__", "to_node_id": "start"},
+                    {"from_node_id": "start", "to_node_id": "__end__"}
+                ]
+            }
+        }
     
     @staticmethod
     def _get_default_turn_component() -> Dict[str, Any]:
@@ -20,11 +39,11 @@ class RulesetHelper:
             "workflow_graph": {
                 "nodes": [
                     # component_definition_id links to PhaseComponentDefinition.id = 1
-                    {"id": "main_phase", "name": "Main Phase", "node_type": "start", "component_definition_id": 1},
-                    {"id": "end", "name": "End", "node_type": "end"}
+                    {"id": "main_phase", "name": "Main Phase", "node_type": "start", "component_definition_id": 200},
                 ],
                 "edges": [
-                    {"from_node_id": "main_phase", "to_node_id": "end"}
+                    {"from_node_id": "__start__", "to_node_id": "main_phase"},
+                    {"from_node_id": "main_phase", "to_node_id": "__end__"}
                 ]
             }
         }
@@ -33,17 +52,17 @@ class RulesetHelper:
     def _get_default_phase_component() -> Dict[str, Any]:
         """Get default phase component definition"""
         return {
-            "id": 1,  # Referenced by turn workflow node's component_definition_id
+            "id": 200,  # Referenced by turn workflow node's component_definition_id
             "name": "Main Phase",
             "component_type": "phase",
             "exit_type": "exit_on_no_actions",
             "workflow_graph": {
                 "nodes": [
                     {"id": "start", "name": "Start", "node_type": "start"},
-                    {"id": "end", "name": "End", "node_type": "end"}
                 ],
                 "edges": [
-                    {"from_node_id": "start", "to_node_id": "end"}
+                    {"from_node_id": "__start__", "to_node_id": "start"},
+                    {"from_node_id": "start", "to_node_id": "__end__"}
                 ]
             }
         }
@@ -146,6 +165,7 @@ class RulesetHelper:
             },
             "actions": [],
             "rules": [],
+            "game_component": RulesetHelper._get_default_game_component(),
             "component_definitions": [
                 RulesetHelper._get_default_turn_component(),
                 RulesetHelper._get_default_phase_component(),

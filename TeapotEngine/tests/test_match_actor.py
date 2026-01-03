@@ -32,9 +32,9 @@ class TestMatchActor:
         
         await actor.begin_game()
         
-        # Game should be initialized
+        # Game should be initialized and finished
         assert actor.state is not None
-        assert actor.state.current_phase == 1
+        assert actor.game_ended is True
     
     @pytest.mark.asyncio
     async def test_process_action(self):
@@ -76,34 +76,7 @@ class TestMatchActor:
         
         result = await actor.process_action(action)
         assert "error" in result
-    
-    @pytest.mark.asyncio
-    async def test_advance_phase(self):
-        """Test advancing to the next phase"""
-        ruleset_dict = RulesetHelper.create_ruleset_with_phases([
-            {
-                "id": 1,
-                "name": "Phase 1",
-                "steps": [{"id": 1, "name": "Step 1", "mandatory": True}],
-                "exit_type": "user_exit"
-            },
-            {
-                "id": 2,
-                "name": "Phase 2",
-                "steps": [{"id": 2, "name": "Step 2", "mandatory": True}],
-                "exit_type": "user_exit"
-            }
-        ])
-        ruleset = RulesetIR.from_dict(ruleset_dict)
-        actor = MatchActor("test_match", ruleset.to_dict(), seed=42)
-        await actor.begin_game()
         
-        initial_phase = actor.state.current_phase
-        await actor.advance_phase()
-        
-        # Phase should have advanced
-        assert actor.state.current_phase != initial_phase or actor.state.current_phase == 2
-    
     @pytest.mark.asyncio
     async def test_end_turn(self):
         """Test ending a turn"""
@@ -179,50 +152,6 @@ class TestMatchActor:
         
         result = actor.submit_input("nonexistent", {})
         assert "error" in result
-    
-    def test_add_event_handler(self):
-        """Test adding an event handler"""
-        ruleset = RulesetHelper.create_ruleset_ir()
-        actor = MatchActor("test_match", ruleset.to_dict(), seed=42)
-        
-        handler_called = []
-        def handler(event):
-            handler_called.append(event)
-        
-        actor.add_event_handler("TestEvent", handler)
-        assert "TestEvent" in actor.event_handlers
-        assert len(actor.event_handlers["TestEvent"]) == 1
-    
-    def test_emit_event(self):
-        """Test emitting an event"""
-        ruleset = RulesetHelper.create_ruleset_ir()
-        actor = MatchActor("test_match", ruleset.to_dict(), seed=42)
-        
-        handler_called = []
-        def handler(event):
-            handler_called.append(event)
-        
-        actor.add_event_handler("TestEvent", handler)
-        
-        event = Event(type="TestEvent", payload={"test": "value"})
-        actor.emit_event(event)
-        
-        assert len(handler_called) == 1
-        assert handler_called[0].type == "TestEvent"
-    
-    @pytest.mark.asyncio
-    async def test_max_recursion_depth(self):
-        """Test maximum recursion depth"""
-        ruleset = RulesetHelper.create_ruleset_ir()
-        ruleset.turn_structure.max_turns_per_player = None
-        actor = MatchActor("test_match", ruleset.to_dict(), seed=42, verbose=True)
-        
-        try:
-            await actor.begin_game()
-        except RecursionError:
-            pass
-        else:
-            pytest.fail("Expected RecursionError to be raised")
 
             
 

@@ -1,4 +1,3 @@
-TeapotEngine
 core
 ruleset
 tests
