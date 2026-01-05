@@ -5,11 +5,9 @@ Workflow execution engine for component-based state machines
 from enum import Enum
 from typing import Callable, Dict, Any, List, Optional, Tuple, TYPE_CHECKING
 from TeapotEngine.ruleset.IR import RulesetIR
-from TeapotEngine.ruleset.workflow.WorkflowGraph import (
-    WorkflowGraph,
+from TeapotEngine.ruleset.workflow import (
     WorkflowNode,
     WorkflowEdge,
-    WorkflowState,
     NodeType
 )
 from TeapotEngine.ruleset.ComponentDefinition import ComponentDefinition, ComponentType
@@ -404,7 +402,7 @@ class WorkflowExecutor:
         Returns:
             True if condition is satisfied or no condition exists, False otherwise
         """
-        if edge.condition is None:
+        if edge.edge_type == "simple":
             return True
         
         # Create evaluation context
@@ -460,7 +458,7 @@ class WorkflowExecutor:
             on_transition(exit_node, "exiting")
         component.workflow.enter_node(target_node_id)
 
-        target_node = component.get_workflow_node(target_node_id)
+        target_node = component.get_current_workflow_node()
         if on_transition:
             on_transition(target_node, "entering")
         

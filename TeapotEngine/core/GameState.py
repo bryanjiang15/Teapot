@@ -2,7 +2,7 @@
 Game state management with event sourcing
 """
 
-from dataclasses import dataclass, field
+from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional, Set
 
 from TeapotEngine.ruleset.models.ResourceModel import ResourceScope, ResourceDefinition
@@ -15,8 +15,7 @@ from .Component import ComponentManager
 from .PhaseManager import TurnType
 
 
-@dataclass
-class GameState:
+class GameState(BaseModel):
     """Current state of the game derived from events"""
     match_id: str
     active_player: str
@@ -24,36 +23,36 @@ class GameState:
     # Turn/Phase component tracking (moved from PhaseManager)
     game_component: Optional[Component] = None
     turn_type: TurnType = TurnType.SINGLE_PLAYER
-    player_ids: List[str] = field(default_factory=list)
+    player_ids: List[str] = Field(default_factory=list)
     current_phase_id: int = 0
     current_step_id: int = 0
     turn_number: int = 1
     
     # Resource definition registry (by definition id)
-    resource_definitions: Dict[int, ResourceDefinition] = field(default_factory=dict)
+    resource_definitions: Dict[int, ResourceDefinition] = Field(default_factory=dict)
     
     # Player states - now using Player objects
-    players: Dict[int, 'Component'] = field(default_factory=dict)
+    players: Dict[int, 'Component'] = Field(default_factory=dict)
     
     # Zones and cards
-    zones: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    zones: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     
     # Game flags and status
-    flags: Dict[str, Any] = field(default_factory=dict)
+    flags: Dict[str, Any] = Field(default_factory=dict)
     
     # Event log for replay
-    event_log: List[Event] = field(default_factory=list)
+    event_log: List[Event] = Field(default_factory=list)
     
     # Component manager for component instances
-    component_manager: ComponentManager = field(default_factory=ComponentManager)
+    component_manager: ComponentManager = Field(default_factory=ComponentManager)
     
     # Trigger metadata for future priority calculations
-    trigger_metadata: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    trigger_metadata: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
     # Global allocator for resource instance IDs
     _next_resource_instance_id: int = 1
     # Example: {"card_123": {"entered_play_turn": 5, "controller": "player1"}}
     
-    def __post_init__(self):
+    def model_post_init(self, __context: Any) -> None:
         """Initialize default zones and player states"""
         if not self.zones:
             # Initialize default zones

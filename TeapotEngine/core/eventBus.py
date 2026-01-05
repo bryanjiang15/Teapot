@@ -2,7 +2,7 @@
 Event bus for managing trigger subscriptions with dynamic registration
 """
 
-from dataclasses import dataclass
+from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
 from .Events import Event, Reaction
 from .Component import Component
@@ -10,8 +10,7 @@ from TeapotEngine.ruleset.rule_definitions.RuleDefinition import TriggerDefiniti
 from TeapotEngine.ruleset.system_models.SystemTrigger import SYSTEM_TRIGGERS
 
 
-@dataclass
-class TriggerSubscription:
+class TriggerSubscription(BaseModel):
     """Represents a registered trigger subscription"""
     id: int  # Auto-incrementing integer ID
     event_type: str

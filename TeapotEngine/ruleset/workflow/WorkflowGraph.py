@@ -2,11 +2,10 @@
 Workflow graph data structures for state machine-based component workflows
 """
 
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Optional, Tuple
 from enum import Enum
-from dataclasses import dataclass, field
 from pydantic import BaseModel, Field
-from TeapotEngine.ruleset.ExpressionModel import Predicate
+from TeapotEngine.ruleset.workflow.WorkflowEdge import WorkflowEdge
 
 
 class NodeType(str, Enum):
@@ -18,8 +17,7 @@ class NodeType(str, Enum):
     PARALLEL_END = "parallel_end"  # End of parallel branch (joins branches)
 
 
-@dataclass
-class WorkflowNode:
+class WorkflowNode(BaseModel):
     """Represents a node in the workflow graph.
     
     The component_definition_id links this node to a child component definition.
@@ -33,71 +31,10 @@ class WorkflowNode:
     node_type: NodeType = NodeType.INTERMEDIATE
     component_definition_id: Optional[int] = None  # Links to child component definition
     component_id: Optional[int] = None  # Links to the component instance
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        result = {
-            "id": self.id,
-            "name": self.name,
-            "node_type": self.node_type.value,
-            "metadata": self.metadata
-        }
-        if self.component_definition_id is not None:
-            result["component_definition_id"] = self.component_definition_id
-        if self.component_id is not None:
-            result["component_id"] = self.component_id
-        return result
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowNode":
-        """Create from dictionary"""
-        return cls(
-            id=data["id"],
-            name=data["name"],
-            node_type=NodeType(data.get("node_type", "intermediate")),
-            component_definition_id=data.get("component_definition_id"),
-            metadata=data.get("metadata", {})
-        )
-
-
-class WorkflowEdge(BaseModel):
-    """Represents a transition edge in the workflow graph"""
-    from_node_id: str  # Source node ID
-    to_node_id: str  # Target node ID
-    condition: Optional[Predicate] = None  # Optional condition that must be satisfied
-    priority: int = 0  # Priority for ordering multiple valid edges
     metadata: Dict[str, Any] = Field(default_factory=dict)
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        result = {
-            "from_node_id": self.from_node_id,
-            "to_node_id": self.to_node_id,
-            "priority": self.priority,
-            "metadata": self.metadata
-        }
-        if self.condition:
-            # Serialize predicate if present
-            result["condition"] = self.condition.model_dump() if hasattr(self.condition, "model_dump") else self.condition
-        return result
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowEdge":
-        """Create from dictionary"""
-        condition = None
-        if "condition" in data and data["condition"]:
-            # Deserialize predicate if present
-            from TeapotEngine.ruleset.ExpressionModel import Predicate
-            condition = Predicate(**data["condition"]) if isinstance(data["condition"], dict) else data["condition"]
-        
-        return cls(
-            from_node_id=data["from_node_id"],
-            to_node_id=data["to_node_id"],
-            condition=condition,
-            priority=data.get("priority", 0),
-            metadata=data.get("metadata", {})
-        )
+    # Available inputs at this workflow node
+    available_input_ids: List[int] = Field(default_factory=list)
 
 
 class WorkflowGraph(BaseModel):
@@ -138,7 +75,7 @@ class WorkflowGraph(BaseModel):
     @property
     def all_nodes(self) -> List[WorkflowNode]:
         """Get all nodes including implicit start and end nodes"""
-        return [self.start_node] + self.nodes + [self.end_node]
+        return [self.start_node] + list(self.nodes) + [self.end_node]
     
     def get_node(self, node_id: str) -> Optional[WorkflowNode]:
         """Get a node by ID (includes implicit start/end nodes)"""
@@ -177,8 +114,12 @@ class WorkflowGraph(BaseModel):
         """Get all incoming edges to a node"""
         return [edge for edge in self.edges if edge.to_node_id == node_id]
     
-    def validate(self) -> tuple[bool, Optional[str]]:
-        """Validate the workflow graph structure"""
+    def validate_graph(self) -> Tuple[bool, Optional[str]]:
+        """Validate the workflow graph structure
+        
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
         # Build set of all valid node IDs (including implicit start/end)
         node_ids = {node.id for node in self.nodes}
         node_ids.add(self.START_NODE_ID)
@@ -210,36 +151,20 @@ class WorkflowGraph(BaseModel):
                 return False, "No edges can originate from the end node"
         
         return True, None
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        return {
-            "nodes": [node.to_dict() for node in self.nodes],
-            "edges": [edge.to_dict() for edge in self.edges]
-        }
-    
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowGraph":
-        """Create from dictionary"""
-        nodes = [WorkflowNode.from_dict(n) for n in data.get("nodes", [])]
-        edges = [WorkflowEdge.from_dict(e) for e in data.get("edges", [])]
-        return cls(
-            nodes=nodes,
-            edges=edges
-        )
 
 
-@dataclass
-class WorkflowState:
+class WorkflowState(BaseModel):
     """Tracks the current state of a workflow instance.
     
     Encapsulates both the workflow graph structure and the current position
     within that graph. This provides a self-contained workflow instance.
     """
-    graph: "WorkflowGraph"  # The workflow structure
+    graph: WorkflowGraph  # The workflow structure
     current_node_id: Optional[str] = None  # Current node in the workflow
-    history: List[str] = field(default_factory=list)  # History of visited nodes
-    metadata: Dict[str, Any] = field(default_factory=dict)  # Instance-specific metadata
+    history: List[str] = Field(default_factory=list)  # History of visited nodes
+    metadata: Dict[str, Any] = Field(default_factory=dict)  # Instance-specific metadata
+    
+    model_config = {"arbitrary_types_allowed": True}
     
     def get_current_node(self) -> Optional[WorkflowNode]:
         """Get the current workflow node.
@@ -281,28 +206,8 @@ class WorkflowState:
         self.history.clear()
         self.metadata.clear()
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for serialization"""
-        return {
-            "graph": self.graph.to_dict(),
-            "current_node_id": self.current_node_id,
-            "history": self.history,
-            "metadata": self.metadata
-        }
-    
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "WorkflowState":
-        """Create from dictionary"""
-        graph = WorkflowGraph.from_dict(data.get("graph", {}))
-        return cls(
-            graph=graph,
-            current_node_id=data.get("current_node_id"),
-            history=data.get("history", []),
-            metadata=data.get("metadata", {})
-        )
-    
-    @classmethod
-    def from_graph(cls, graph: "WorkflowGraph") -> "WorkflowState":
+    def from_graph(cls, graph: WorkflowGraph) -> "WorkflowState":
         """Create a new workflow state from a graph, starting at the start node.
         
         Args:
@@ -314,4 +219,3 @@ class WorkflowState:
         state = cls(graph=graph)
         state.enter_node(graph.START_NODE_ID)
         return state
-

@@ -21,8 +21,8 @@ class RulesetHelper:
                     {"id": "end", "name": "End", "node_type": "end"}
                 ],
                 "edges": [
-                    {"from_node_id": "__start__", "to_node_id": "start"},
-                    {"from_node_id": "start", "to_node_id": "__end__"}
+                    {"from_node_id": "__start__", "to_node_id": "start", "edge_type": "simple"},
+                    {"from_node_id": "start", "to_node_id": "__end__", "edge_type": "simple"}
                 ]
             }
         }
@@ -42,8 +42,8 @@ class RulesetHelper:
                     {"id": "main_phase", "name": "Main Phase", "node_type": "start", "component_definition_id": 200},
                 ],
                 "edges": [
-                    {"from_node_id": "__start__", "to_node_id": "main_phase"},
-                    {"from_node_id": "main_phase", "to_node_id": "__end__"}
+                    {"from_node_id": "__start__", "to_node_id": "main_phase", "edge_type": "simple"},
+                    {"from_node_id": "main_phase", "to_node_id": "__end__", "edge_type": "simple"}
                 ]
             }
         }
@@ -61,8 +61,8 @@ class RulesetHelper:
                     {"id": "start", "name": "Start", "node_type": "start"},
                 ],
                 "edges": [
-                    {"from_node_id": "__start__", "to_node_id": "start"},
-                    {"from_node_id": "start", "to_node_id": "__end__"}
+                    {"from_node_id": "__start__", "to_node_id": "start", "edge_type": "simple"},
+                    {"from_node_id": "start", "to_node_id": "__end__", "edge_type": "simple"}
                 ]
             }
         }
@@ -100,7 +100,7 @@ class RulesetHelper:
     @staticmethod
     def create_ruleset_with_phases(phases: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with specific phases"""
-        ruleset = RulesetHelper.create_minimal_ruleset()
+        ruleset = RulesetHelper.create_ruleset_with_game_component()
         ruleset["turn_structure"]["phases"] = phases
         if phases:
             ruleset["turn_structure"]["initial_phase_id"] = phases[0]["id"]
@@ -109,14 +109,14 @@ class RulesetHelper:
     @staticmethod
     def create_ruleset_with_actions(actions: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with specific actions"""
-        ruleset = RulesetHelper.create_minimal_ruleset()
+        ruleset = RulesetHelper.create_ruleset_with_game_component()
         ruleset["actions"] = actions
         return ruleset
     
     @staticmethod
     def create_ruleset_with_components(components: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with component definitions"""
-        ruleset = RulesetHelper.create_minimal_ruleset()
+        ruleset = RulesetHelper.create_ruleset_with_game_component()
         # Keep default turn/phase components and add the custom ones
         default_components = [
             RulesetHelper._get_default_turn_component(),
@@ -128,7 +128,7 @@ class RulesetHelper:
     @staticmethod
     def create_ruleset_with_resources(resources: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with resource definitions"""
-        ruleset = RulesetHelper.create_minimal_ruleset()
+        ruleset = RulesetHelper.create_ruleset_with_game_component()
         # Resources are typically part of component definitions
         # Create a player component with the resources
         player_component = {
@@ -217,17 +217,7 @@ class RulesetHelper:
                 "triggers": [],
                 "resources": []
             },
-            "turn_structure": {
-                "phases": [
-                    {
-                        "id": 1,
-                        "name": "Main Phase",
-                        "steps": [{"id": 1, "name": "Main Step", "mandatory": True}],
-                        "exit_type": "exit_on_no_actions"
-                    }
-                ],
-                "initial_phase_id": 1
-            },
+            "turn_structure": {},
             "actions": [],
             "rules": [],
             "component_definitions": [

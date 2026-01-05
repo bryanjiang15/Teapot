@@ -30,7 +30,7 @@ class GameComponentDefinition(ComponentDefinition):
         self.component_type = ComponentType.GAME
 
         if "workflow_graph" in data and isinstance(data["workflow_graph"], dict):
-            self.workflow_graph = WorkflowGraph.from_dict(data["workflow_graph"])
+            self.workflow_graph = WorkflowGraph(**data["workflow_graph"])
     
     def get_global_zone(self, zone_id: int) -> Optional[Dict[str, Any]]:
         """Get a global zone definition by ID"""
@@ -235,12 +235,12 @@ class TurnComponentDefinition(ComponentDefinition):
         self.component_type = ComponentType.TURN
         # Deserialize workflow_graph if present
         if "workflow_graph" in data and isinstance(data["workflow_graph"], dict):
-            self.workflow_graph = WorkflowGraph.from_dict(data["workflow_graph"])
+            self.workflow_graph = WorkflowGraph.model_validate(data["workflow_graph"])
     
     def get_component_specific_data(self) -> Dict[str, Any]:
         """Get turn-specific data"""
         return {
-            "workflow_graph": self.workflow_graph.to_dict() if self.workflow_graph else None,
+            "workflow_graph": self.workflow_graph.model_dump() if self.workflow_graph else None,
             "max_turns_per_player": self.max_turns_per_player,
             "turn_type": self.turn_type
         }
@@ -249,7 +249,7 @@ class TurnComponentDefinition(ComponentDefinition):
         """Validate turn component rules"""
         # Validate workflow graph if present
         if self.workflow_graph:
-            is_valid, error = self.workflow_graph.validate()
+            is_valid, error = self.workflow_graph.validate_graph()
             if not is_valid:
                 return False
         
@@ -280,12 +280,12 @@ class PhaseComponentDefinition(ComponentDefinition):
         self.component_type = ComponentType.PHASE
         # Deserialize workflow_graph if present
         if "workflow_graph" in data and isinstance(data["workflow_graph"], dict):
-            self.workflow_graph = WorkflowGraph.from_dict(data["workflow_graph"])
+            self.workflow_graph = WorkflowGraph.model_validate(data["workflow_graph"])
     
     def get_component_specific_data(self) -> Dict[str, Any]:
         """Get phase-specific data"""
         return {
-            "workflow_graph": self.workflow_graph.to_dict() if self.workflow_graph else None,
+            "workflow_graph": self.workflow_graph.model_dump() if self.workflow_graph else None,
             "exit_type": self.exit_type,
             "steps": self.steps
         }
@@ -294,7 +294,7 @@ class PhaseComponentDefinition(ComponentDefinition):
         """Validate phase component rules"""
         # Validate workflow graph if present
         if self.workflow_graph:
-            is_valid, error = self.workflow_graph.validate()
+            is_valid, error = self.workflow_graph.validate_graph()
             if not is_valid:
                 return False
         
@@ -326,7 +326,7 @@ class ProcedureComponentDefinition(ComponentDefinition):
     def get_component_specific_data(self) -> Dict[str, Any]:
         """Get procedure-specific data"""
         return {
-            "workflow_graph": self.workflow_graph.to_dict() if self.workflow_graph else None
+            "workflow_graph": self.workflow_graph.model_dump() if self.workflow_graph else None
         }
     
     def validate_component(self) -> bool:
