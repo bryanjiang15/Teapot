@@ -1,0 +1,677 @@
+manifest:
+  version: "0.1.2"
+  schema: https://a2as.org/cert/schema
+  subject:
+    name: bryanjiang15/teapot
+    source: https://github.com/bryanjiang15/teapot
+    branch: main
+    commit: "a2178e55"
+    scope: [CreatorAPI/Agents/CardAgents.py, CreatorAPI/Agents/agent_registry.py, CreatorAPI/Agents/agent_registry_integration.py,
+      CreatorAPI/AmountProcessors/amount_processing.py, CreatorAPI/abilityGenerationPipeline.py]
+  issued:
+    by: A2AS.org
+    at: '2026-01-26T16:16:33Z'
+  signatures:
+    digest: sha256:cK5rW-InqYfpGkkZgRSP7OnESBPip8JUJOj8Z9HVjFg
+    key: ed25519:jyFe3Cg4rE00nhTLcpR7sYuo60YugRdC_2vvuRwTpd4
+    sig: ed25519:-Otd_dEU3sPGtKVx9F3ALyAjsgUtt76sOttb0xOIPMpSCzV-CwbMZ2bz9mXCPQQKcCzv96hhp8sy0x7yaKjDBQ
+
+agents:
+  ability_decomposition_agent:
+    type: instance
+    models: [gpt-4.1]
+    params:
+      name: Ability Decomposition Agent
+      output_type: AgentOutputSchema()
+      instructions: [You are a helpful assistant for developing a trading card game., 'The user will provide you with a card
+          ability description, and you will decompose it into modular components for analysis and implementation.', '**Component
+          Types:**', '1. **Trigger Component**: The event that activates the ability (must be first)', '- Event type (OnReveal,
+          OnPlay, OnDeath, etc.)', '- Trigger source (what can cause the trigger)', '- Timing and conditions for activation',
+        '2. **Action Component**: The action/effect the ability performs', '- Action type (GainPower, DrawCard, DestroyCard,
+          etc.)', '- Amount/value of the action', '- Target of the action (what receives the action)', '- Duration and persistence
+          of the action', '3. **Condition Component**: Requirements that must be met', '- If/while conditions that control
+          ability execution', '- Target requirements (power, cost, card type, etc.)', '- Player state requirements (hand size,
+          energy, etc.)', '- Each condition must have a corresponding end condition', '4. **Choice Component**: Player choices
+          and user input', '- Choice type (If, While, Else)', '- Actions that the player must make', '- Target selection requirements
+          (specific target or group of targets)', '- Choice options and their effects', '5. **End Condition Component**: Marks
+          the end of conditional blocks', '- Must pair with each condition component', '- Defines scope of conditional effects',
+        '**Decomposition Guidelines:**', '- Identify the logical flow and dependencies', '- Separate distinct functional elements',
+        '- Maintain chronological order where relevant', '- Include all implicit conditions and requirements', '- Consider
+          edge cases and alternative scenarios', 'Output a list of SnapComponent, each with a componentType and componentDescription,  describing
+          a single component in clear, concise language (max 200 words per component).', 'Use consistent terminology and be
+          specific about targets, amounts, and conditions.']
+  art_generation_agent:
+    type: instance
+    models: [gpt-4o-mini]
+    params:
+      name: Art Generation Agent
+      instructions: [You are a helpful assistant for developing a trading card game., 'The user will provide you with an card
+          ability description, and you will generate an art for the card.', Output the art in a JSON object.]
+  create_card_effect_agent.0:
+    type: instance
+    models: [gpt-4.1]
+    tools: [get_card_id, create_random_card_effect_schema]
+    params:
+      function: create_and_register_agents
+      name: Trading Card Game Assistant
+      output_type: AgentOutputSchema(AbilityEffect)
+      instance: create_card_effect_agent
+      instructions: ['{RECOMMENDED_PROMPT_PREFIX}', You are a helpful assistant for developing a trading card game., 'The
+          user will provide you with an card ability description, and you will identify the effect of the ability and the
+          amount of the effect.', 'The effect is an action that creates a card somewhere. You need to identify the specific
+          effect type, and what card is created.', 'If the ability generate a specific card, call the get_card_id tool to
+          get the card id of that card, and return the card id as value in the amountData.', 'If the ability generate a random
+          card, call the create_random_card_effect_schema tool to create the amountData.', Output a JSON object of the effect
+          schema.]
+  create_card_effect_agent.1:
+    type: instance
+    models: [gpt-4.1]
+    tools: [get_card_id, create_random_card_effect_schema]
+    params:
+      name: Create Card Effect Agent
+      output_type: AgentOutputSchema(AbilityEffect)
+      instance: create_card_effect_agent
+      instructions: ['{RECOMMENDED_PROMPT_PREFIX}', You are a helpful assistant for developing a trading card game., 'The
+          user will provide you with an card ability description, and you will identify the effect of the ability and the
+          amount of the effect.', 'The effect is an action that creates a card somewhere. You need to identify the specific
+          effect type, and what card is created.', 'If the ability generate a specific card, call the get_card_id tool to
+          get the card id of that card, and return the card id as value in the amountData.', 'If the ability generate a random
+          card, call the create_random_card_effect_schema tool to create the amountData.', Output a JSON object of the effect
+          schema.]
+  effect_agent.0:
+    type: instance
+    models: [gpt-4.1]
+    tools: [effect_schema_tool]
+    params:
+      function: create_and_register_agents
+      name: Trading Card Game Assistant
+      output_type: AgentOutputSchema(AbilityEffect)
+      handoffs: [create_card_effect_agent]
+      instance: effect_agent
+      instructions: [You are a helpful assistant for developing a trading card game., 'The user will provide you with an card
+          ability description, and you will identify the effect of the ability and the amount of the effect.', The effect
+          is the action that the ability performs., 'If the ability effect creates a card, handoff to create_card_effect_agent.',
+        Output a JSON object of the effect schema.]
+  effect_agent.1:
+    type: instance
+    models: [gpt-4.1]
+    tools: [effect_schema_tool]
+    params:
+      name: Effect Agent
+      output_type: AgentOutputSchema(AbilityEffect)
+      handoffs: [create_card_effect_agent]
+      instance: effect_agent
+      instructions: ['{RECOMMENDED_PROMPT_PREFIX}', You are a helpful assistant for developing a trading card game., 'The
+          user will provide you with an card ability description, and you will identify the effect of the ability and the
+          amount of the effect.', The effect is the action that the ability performs., 'If the ability effect creates a card,
+          handoff to create_card_effect_agent.', Output a JSON object of the effect schema.]
+  new_trigger_agent:
+    type: instance
+    models: [gpt-4.1]
+    tools: [old_agent.tools]
+    params:
+      function: demonstrate_registry_benefits
+      name: Updated Trading Card Game Assistant
+      output_type: old_agent.output_type
+      instructions: [Updated instructions for trigger parsing...]
+  prompt_enhance_agent:
+    type: instance
+    models: [gpt-4.1]
+    params:
+      name: Prompt Enhance Agent
+      instructions: [You are a helpful assistant for developing a trading card game., 'The user will provide you with an card
+          ability description, and you will identify the ability and improve the ability description to be more specific and
+          clear.', 'Include details about the trigger, target, and effect of the ability.', The trigger should specify the
+          event that causes the ability to activate and what targets can trigger the ability., The target should specify the
+          target that the ability is applied to., The effect should specify the action that the ability performs and the amount
+          of the effect., Output the improved ability description in 50 words or less.]
+  requirement_agent.0:
+    type: instance
+    models: [gpt-4.1]
+    tools: [requirement_schema_tool]
+    params:
+      function: create_and_register_agents
+      name: Trading Card Game Assistant
+      output_type: AgentOutputSchema(AbilityRequirement)
+      instance: requirement_agent
+      instructions: [You are a helpful assistant for developing a trading card game., 'The user will provide you with an card
+          ability description, and you will identify the abilities'' requirement to activate.', 'The requirement is the condition
+          that must be met for the ability to activate when the ability is triggered, the requirement is NOT the trigger.',
+        'If the ability has no requirement, return an empty JSON object.', Output a JSON object of the requirement schema.]
+  requirement_agent.1:
+    type: instance
+    models: [gpt-4.1]
+    tools: [requirement_schema_tool]
+    params:
+      name: Requirement Agent
+      output_type: AgentOutputSchema(AbilityRequirement)
+      instance: requirement_agent
+      instructions: ['{RECOMMENDED_PROMPT_PREFIX}', You are a helpful assistant for developing a trading card game., 'The
+          user will provide you with an card ability description, and you will identify the abilities'' requirement to activate.',
+        'The requirement is the condition that must be met for the ability to activate when the ability is triggered, the
+          requirement is NOT the trigger.', 'The requirement should also include the target that needs to pass the requirement.
+          The target does NOT equal the target the effect is applied to, but it can be.', 'If the ability has no requirement,
+          return an empty JSON object.', Output a JSON object of the requirement schema.]
+  result_examination_agent:
+    type: instance
+    models: [gpt-4.1]
+    params:
+      name: Result Examination Agent
+      output_type: AgentOutputSchema()
+      instructions: [You are a helpful assistant for developing a trading card game., The user will provide you with a card
+          ability description and a JSON object that describes the parsed ability., Your task is to thoroughly examine and
+          validate the JSON object against the original ability description., 'Analyze the following components:', '1. **Trigger
+          Analysis**: Verify the trigger type and trigger source match the ability description', '2. **Effect Analysis**:
+          Confirm the effect type and amount data accurately represent the ability''s action', '3. **Target Analysis**: Validate
+          that the target definition correctly identifies what the effect applies to', '4. **Requirement Analysis**: Check
+          if any activation requirements are properly captured', '5. **Overall Consistency**: Ensure all components work together
+          logically', 'For each component, provide:', '- Whether it matches the original description (✓ or ✗)', '- Specific
+          reasoning for your assessment', '- Any discrepancies or missing elements', '- Suggestions for improvement if needed',
+        'Output your analysis as a list of strings, with each string containing a specific finding or observation, separated
+          by a new line.', Be thorough but concise in your analysis.]
+  target_agent.0:
+    type: instance
+    models: [gpt-4.1]
+    tools: [target_schema_tool, get_valid_effect_target_types]
+    params:
+      function: create_and_register_agents
+      name: Trading Card Game Assistant
+      output_type: AgentOutputSchema(TargetData)
+      instance: target_agent
+      instructions: [You are a helpful assistant for developing a trading card game., 'The user will provide you with an card
+          ability description, and you will identify the target of the ability that will be affected.', 'The target is the
+          target that the effect is applied to, NOT the target that causes the ability to activate or the target that determines
+          the effect of the ability.', The target should be determined by the effect type. Call the get_valid_target_types
+          tool to get a list of valid target types for the effect type and select one., Output a JSON object of the target
+          schema.]
+  target_agent.1:
+    type: instance
+    models: [gpt-4.1]
+    tools: [get_valid_effect_target_types]
+    params:
+      name: Target Agent
+      output_type: AgentOutputSchema(TargetData)
+      instance: target_agent
+      instructions: ['{RECOMMENDED_PROMPT_PREFIX}', You are a helpful assistant for developing a trading card game., 'The
+          user will provide you with an card ability description, and you will identify the target of the ability that will
+          be affected.', 'The target is the target that the effect is applied to, NOT the target that causes the ability to
+          activate or the target that determines the effect of the ability.', The target should be determined by the effect
+          type. Call the get_valid_target_types tool to get a list of valid target types for the effect type and select one.,
+        Output a JSON object of the target schema.]
+  triage_agent:
+    type: instance
+    models: [gpt-4.1]
+    params:
+      name: Triage Agent
+      handoffs: [trigger_agent, effect_agent, target_agent, requirement_agent]
+      instructions: [You are a helpful assistant for developing a trading card game., You are provided with a component from
+          a decomposed card ability and the full ability description., 'Your task is to analyze the component and determine
+          which specialized agent should process it:', '**Component Classification:**', '1. **Trigger Component**: Contains
+          events like "OnReveal", "OnPlay", "End of turn", "When this card is played"', → Handoff to trigger_agent, '2. **Effect
+          Component**: Contains actions like "gain power", "draw cards", "destroy cards", "heal", "damage"', → Handoff to
+          effect_agent, '3. **Target Component**: Contains target specifications like "all cards", "this card", "opponent''s
+          cards", "your deck"', → Handoff to target_agent, '4. **Requirement Component**: Contains conditions like "if you
+          have", "while this has", "when this card has X power"', → Handoff to requirement_agent, '**Analysis Process:**',
+        '- Read the component carefully', '- Identify the primary function of the component', '- Consider the context from
+          the full ability description', '- Route to the most appropriate agent', '- Provide clear reasoning for your choice',
+        'If a component contains multiple aspects, prioritize the most dominant one or split into multiple handoffs if necessary.']
+  trigger_agent.0:
+    type: instance
+    models: [gpt-4.1]
+    tools: [trigger_schema_tool, get_valid_trigger_target_types]
+    params:
+      function: create_and_register_agents
+      name: Trading Card Game Assistant
+      output_type: AgentOutputSchema(AbilityTrigger)
+      instance: trigger_agent
+      instructions: [You are a helpful assistant for developing a trading card game., 'The user will provide you with an card
+          ability description, and you will identify what event triggers the ability and what target can trigger the ability.',
+        'The triggerType is the event that causes the ability to activate, and the triggerTargets defines what target can
+          cause the trigger to activate. TriggerTarget is NOT the target of the ability.', The triggerTarget should be determined
+          by the triggerType. Call the get_valid_trigger_target_types tool to get a list of valid trigger targets for the
+          trigger type and select one., Output a JSON object of the trigger schema.]
+  trigger_agent.1:
+    type: instance
+    models: [gpt-4.1]
+    tools: [trigger_schema_tool, get_valid_trigger_target_types]
+    params:
+      name: Trigger Agent
+      output_type: AgentOutputSchema(AbilityTrigger)
+      instance: trigger_agent
+      instructions: ['{RECOMMENDED_PROMPT_PREFIX}', You are a helpful assistant for developing a trading card game., 'The
+          user will provide you with an card ability description, and you will identify what event triggers the ability and
+          what target can trigger the ability.', 'The triggerType is the event that causes the ability to activate, and the
+          triggerTargets defines what target can cause the trigger to activate. TriggerTarget is NOT the target of the ability.',
+        The triggerTarget should be determined by the triggerType. Call the get_valid_trigger_target_types tool to get a list
+          of valid trigger targets for the trigger type and select one., Output a JSON object of the trigger schema.]
+
+models:
+  gpt-4.1:
+    type: default
+    agents: [trigger_agent.0, create_card_effect_agent.0, effect_agent.0, target_agent.0, requirement_agent.0, new_trigger_agent,
+      trigger_agent.1, create_card_effect_agent.1, effect_agent.1, target_agent.1, requirement_agent.1, ability_decomposition_agent,
+      prompt_enhance_agent, triage_agent, result_examination_agent]
+  gpt-4o-mini:
+    type: literal
+    agents: [art_generation_agent]
+
+tools:
+  create_random_card_effect_schema:
+    type: variable
+    agents: [create_card_effect_agent.0, create_card_effect_agent.1]
+    params:
+      dynamic: "True"
+      description: |-
+        Create the amountData schema for a random card generation effect.
+        Args:
+            numberOfCards (int): The number of cards to generate.
+            cardGenerationCondition (RequirementData): The condition that the cards must meet to be a valid choice.
+
+        Returns:
+            AmountData: The effect schema for the random card generation.
+  effect_schema_tool:
+    type: variable
+    agents: [effect_agent.0, effect_agent.1]
+    params:
+      dynamic: "True"
+      description: |-
+        Build an AbilityEffect Object and check its validity.
+
+        Args:
+            effect_type (str): The type of effect.
+            amount (AmountData): The amount of the effect.
+  get_card_id:
+    type: variable
+    agents: [create_card_effect_agent.0, create_card_effect_agent.1]
+    params:
+      dynamic: "True"
+      description: |-
+        Get the card id for a given card name.
+
+        Args:
+            cardName (str): The name of the card to check.
+
+        Returns:
+            int: The card id for the given card name. -1 if the card does not exist.
+  get_valid_effect_target_types:
+    type: variable
+    agents: [target_agent.0, target_agent.1]
+    params:
+      dynamic: "True"
+      description: |-
+        Get the valid target types for a given effect type.
+
+        Args:
+            effectType (EffectType): The type of effect to check valid targets for.
+
+        Returns:
+            list[TargetType]: List of valid target types for the given effect type.
+  get_valid_trigger_target_types:
+    type: variable
+    agents: [trigger_agent.0, trigger_agent.1]
+    params:
+      dynamic: "True"
+      description: |-
+        Get the valid target types for a given trigger type.
+
+        Args:
+            triggerType (TriggerType): The type of trigger to check valid targets for.
+
+        Returns:
+            list[TargetType]: List of valid target types for the given trigger type.
+  old_agent.tools:
+    type: variable
+    agents: [new_trigger_agent]
+    params:
+      dynamic: "True"
+  requirement_schema_tool:
+    type: variable
+    agents: [requirement_agent.0, requirement_agent.1]
+    params:
+      dynamic: "True"
+      description: |-
+        Build an AbilityRequirement Object and check its validity.
+
+        Args:
+            requirement_data (RequirementData): Data specifying the requirement of the ability.
+            requirement_target (TargetData): Data specifying the target that needs to pass the requirement.
+  target_schema_tool:
+    type: variable
+    agents: [target_agent.0]
+    params:
+      dynamic: "True"
+      description: |-
+        Build an AbilityTarget Object and check its validity.
+
+        Args:
+            target_data (TargetData): Data specifying the target of the ability.
+  trigger_schema_tool:
+    type: variable
+    agents: [trigger_agent.0, trigger_agent.1]
+    params:
+      dynamic: "True"
+      description: |-
+        Build an AbilityTrigger Object and check its validity.
+
+        Args:
+            trigger_type (TriggerType): The type of trigger.
+            trigger_target_data (TargetData): Data specifying what target can cause the trigger to activate.
+
+teams:
+  effect_agent.0:
+    type: handoff
+    agents: [effect_agent.0]
+  effect_agent.1:
+    type: handoff
+    agents: [effect_agent.1]
+  triage_agent:
+    type: handoff
+    agents: [triage_agent]
+
+imports:
+  '*': abilityDefinitions.*
+  AbilityAmountType: abilityData.AbilityAmountType
+  AbilityDefinition: AbilityResponse.AbilityDefinition
+  AbilityGenerationPipeline: abilityGenerationPipeline.AbilityGenerationPipeline
+  AbilityRequest: AbilityResponse.AbilityRequest
+  AbilityResponse: AbilityResponse.AbilityResponse
+  Agent: agents.Agent
+  agent_registry: Agents.agent_registry.agent_registry
+  AgentOutputSchema: agents.AgentOutputSchema
+  AmountProcessor: AmountProcessors.amount_processing.AmountProcessor
+  Any: typing.Any
+  asyncio: asyncio
+  BaseModel: pydantic.BaseModel
+  check_amount_data: tcg_api.AmountProcessors.amount_processing.check_amount_data
+  create_random_card_effect_schema: tcg_server_exp.create_random_card_effect_schema
+  dataclass: dataclasses.dataclass
+  Dict: typing.Dict
+  effect_schema_tool: tcg_server_exp.effect_schema_tool
+  EffectType: abilityData.EffectType
+  Enum: enum.Enum
+  FastAPI: fastapi.FastAPI
+  function_tool: agents.function_tool
+  Generate_Ability: tcg_server_exp.Generate_Ability
+  get_card_id: tcg_server_exp.get_card_id
+  get_valid_effect_target_types: tcg_server_exp.get_valid_effect_target_types
+  get_valid_trigger_target_types: tcg_server_exp.get_valid_trigger_target_types
+  HTTPException: fastapi.HTTPException
+  List: typing.List
+  load_dotenv: dotenv.load_dotenv
+  OpenAI: openai.OpenAI
+  Optional: typing.Optional
+  process_amount_queries: tcg_api.AmountProcessors.amount_processing.process_amount_queries
+  RECOMMENDED_PROMPT_PREFIX: agents.extensions.handoff_prompt.RECOMMENDED_PROMPT_PREFIX
+  register_agents: Agents.CardAgents.register_agents
+  requirement_schema_tool: tcg_server_exp.requirement_schema_tool
+  RequirementComparator: abilityData.RequirementComparator
+  RequirementType: abilityData.RequirementType
+  Runner: agents.Runner
+  SnapActionDefinition: SnapComponents.SnapComponentDefinition.SnapActionDefinition
+  SnapComponent: SnapComponents.SnapComponent.SnapComponent
+  SnapComponentDefinition: SnapComponents.SnapComponentDefinition.SnapComponentDefinition
+  SnapComponentType: SnapComponents.SnapComponent.SnapComponentType
+  SnapComponentUnion: SnapComponents.SnapComponentDefinition.SnapComponentUnion
+  SnapConditionDefinition: SnapComponents.SnapComponentDefinition.SnapConditionDefinition
+  SnapTriggerDefinition: SnapComponents.SnapComponentDefinition.SnapTriggerDefinition
+  target_schema_tool: tcg_server_exp.target_schema_tool
+  TargetRange: abilityData.TargetRange
+  TargetSort: abilityData.TargetSort
+  TargetType: abilityData.TargetType
+  threading: threading
+  trace: agents.trace
+  trigger_schema_tool: tcg_server_exp.trigger_schema_tool
+  TriggerType: abilityData.TriggerType
+  update_processed_amounts: tcg_api.AmountProcessors.amount_processing.update_processed_amounts
+  uvicorn: uvicorn
+
+functions:
+  __contains__:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name]
+    params:
+      returns: bool
+  __delitem__:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name]
+    params:
+      returns: None
+  __getitem__:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name]
+    params:
+      returns: Agent
+  __init__:
+    type: sync
+    module: CreatorAPI.abilityGenerationPipeline
+    args: [self]
+  __iter__:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self]
+  __len__:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self]
+    params:
+      returns: int
+  __new__:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [cls]
+    params:
+      returns: AgentRegistry
+  __repr__:
+    type: sync
+    module: CreatorAPI.abilityDefinitions
+    args: [self]
+    params:
+      returns: str
+  __setitem__:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name, agent]
+    params:
+      returns: None
+  __str__:
+    type: sync
+    module: CreatorAPI.abilityDefinitions
+    args: [self]
+    params:
+      returns: str
+  check_amount_data:
+    type: sync
+    module: CreatorAPI.AmountProcessors.amount_processing
+    args: [self, data]
+    params:
+      returns: list[str]
+  clear:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self]
+    params:
+      returns: None
+  create_and_register_agents:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry_integration
+  create_random_card_effect_schema:
+    type: tool
+    module: CreatorAPI.abilityDefinitions
+    args: [numberOfCards, cardGenerationCondition]
+    params:
+      returns: AmountData
+  decompose_ability:
+    type: async
+    module: CreatorAPI.abilityGenerationPipeline
+    args: [self, ability_description]
+  demonstrate_configuration_management:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry_integration
+  demonstrate_registry_benefits:
+    type: async
+    module: CreatorAPI.Agents.agent_registry_integration
+  effect_schema_tool:
+    type: tool
+    module: CreatorAPI.Agents.CardAgents
+    args: [effect_type, amount]
+    params:
+      returns: AbilityEffect
+  Generate_Ability:
+    type: async
+    module: CreatorAPI.tcg_server_exp
+    args: [ability_description, card_description]
+  generate_ability:
+    type: async
+    module: CreatorAPI.abilityGenerationPipeline
+    args: [self, ability_description, card_description]
+  generate_ability_with_registry:
+    type: async
+    module: CreatorAPI.Agents.agent_registry_integration
+    args: [ability_description]
+  generate_art:
+    type: async
+    module: CreatorAPI.abilityGenerationPipeline
+    args: [self, card_description]
+  get_agent:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name]
+    params:
+      returns: Optional[Agent]
+  get_agent_count:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self]
+    params:
+      returns: int
+  get_agent_or_raise:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name]
+    params:
+      returns: Agent
+  get_all_agents:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self]
+    params:
+      returns: Dict
+  get_card_id:
+    type: tool
+    module: CreatorAPI.abilityDefinitions
+    args: [cardName]
+    params:
+      returns: int
+  get_processable_queries:
+    type: sync
+    module: CreatorAPI.abilityDefinitions
+    args: [self]
+    params:
+      returns: list[str]
+  get_valid_effect_target_types:
+    type: tool
+    module: CreatorAPI.abilityDefinitions
+    args: [effectType]
+    params:
+      returns: list[TargetType]
+  get_valid_trigger_target_types:
+    type: tool
+    module: CreatorAPI.abilityDefinitions
+    args: [triggerType]
+    params:
+      returns: list[TargetType]
+  has_agent:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name]
+    params:
+      returns: bool
+  list_agents:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self]
+    params:
+      returns: list[str]
+  main:
+    type: async
+    module: CreatorAPI.Agents.agent_registry_integration
+  parse_ability:
+    type: async
+    module: CreatorAPI.tcg_api
+    args: [request]
+  process_amount_data:
+    type: async
+    module: CreatorAPI.abilityGenerationPipeline
+    args: [self, components]
+  process_component:
+    type: async
+    module: CreatorAPI.abilityGenerationPipeline
+    args: [self, component, index, ability_description]
+  process_components_and_art_parallel:
+    type: async
+    module: CreatorAPI.abilityGenerationPipeline
+    args: [self, components, ability_description, card_description]
+  register_agent:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name, agent]
+    params:
+      returns: None
+  register_agents:
+    type: sync
+    module: CreatorAPI.Agents.CardAgents
+  register_multiple_agents:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, agents]
+    params:
+      returns: None
+  requirement_schema_tool:
+    type: tool
+    module: CreatorAPI.Agents.CardAgents
+    args: [requirement_data, requirement_target]
+    params:
+      returns: AbilityRequirement
+  run_fallback_processing:
+    type: async
+    module: CreatorAPI.abilityGenerationPipeline
+    args: [self, ability_description]
+  target_schema_tool:
+    type: tool
+    module: CreatorAPI.Agents.CardAgents
+    args: [target_data]
+    params:
+      returns: TargetData
+  to_dict:
+    type: sync
+    module: CreatorAPI.abilityDefinitions
+    args: [self]
+    params:
+      returns: dict
+  trigger_schema_tool:
+    type: tool
+    module: CreatorAPI.Agents.CardAgents
+    args: [trigger_type, trigger_target_data]
+    params:
+      returns: AbilityTrigger
+  unregister_agent:
+    type: sync
+    module: CreatorAPI.Agents.agent_registry
+    args: [self, name]
+    params:
+      returns: bool
+  update_data:
+    type: sync
+    module: CreatorAPI.abilityDefinitions
+    args: [self, processed_results]
+    params:
+      returns: None
+  update_processed_amounts:
+    type: sync
+    module: CreatorAPI.AmountProcessors.amount_processing
+    args: [self, data, processed_results]
+    params:
+      returns: None
