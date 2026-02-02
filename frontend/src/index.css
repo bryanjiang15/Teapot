@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 44 42% 97%;
+    --foreground: 0 0% 24%;
+    --card: 44 42% 97%;
+    --card-foreground: 0 0% 24%;
+    --popover: 44 42% 97%;
+    --popover-foreground: 0 0% 24%;
+    --primary: 23 100% 63%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 35 36% 90%;
+    --secondary-foreground: 0 0% 24%;
+    --muted: 35 36% 90%;
+    --muted-foreground: 0 0% 42%;
+    --accent: 35 36% 90%;
+    --accent-foreground: 0 0% 24%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 30 20% 80%;
+    --input: 30 20% 80%;
+    --ring: 23 100% 63%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: #FFF8F0;
+    color: #3E3E3E;
+    font-family: 'Inter', sans-serif;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+  }
+}
+
+/* Custom wood texture pattern */
+.wood-texture {
+  background-image: 
+    repeating-linear-gradient(
+      90deg,
+      rgba(139, 115, 85, 0.03) 0px,
+      rgba(139, 115, 85, 0.03) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+}
+
+/* Wood border style */
+.wood-border {
+  border: 2px solid #8B7355;
+  border-radius: 12px;
+}
+
+/* Pastel badge styles */
+.badge-green {
+  background-color: #B8DDB8;
+  color: white;
+}
+
+.badge-blue {
+  background-color: #B8D8E8;
+  color: white;
+}
+
+.badge-purple {
+  background-color: #D8C7E8;
+  color: white;
+}
+
+.badge-yellow {
+  background-color: #F5E6B8;
+  color: white;
+}
+
+/* Orange button hover effect */
+.btn-orange {
+  background-color: #FF8C42;
+  color: white;
+  transition: all 200ms;
+}
+
+.btn-orange:hover {
+  background-color: #FF7A2B;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: all 200ms;
+}
+
+.card-hover:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  transform: translateY(-4px);
+}

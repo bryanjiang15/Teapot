@@ -273,24 +273,6 @@ class WorkflowExecutor:
         # TODO: Could implement pathfinding here to check if exit is reachable
         return False
     
-    def advance_workflow(
-        self,
-        component: Component,
-        definition: ComponentDefinition = None,
-        game_state: "GameState" = None
-    ) -> bool:
-        """Advance the workflow to the next node"""
-        if not component.workflow or not component.workflow.current_node_id:
-            return False
-        
-        transitions = self._get_valid_transitions_local(component, game_state)
-        if not transitions:
-            return False
-        
-        # Take the first valid transition (highest priority)
-        target_node_id = transitions[0].to_node_id
-        return self.transition_to_node(component, definition, target_node_id, game_state)
-    
     def step_workflow(
         self,
         component: Component,
@@ -402,7 +384,7 @@ class WorkflowExecutor:
         Returns:
             True if condition is satisfied or no condition exists, False otherwise
         """
-        if edge.edge_type == "simple":
+        if edge.edge_type != "condition":
             return True
         
         # Create evaluation context

@@ -41,21 +41,38 @@ class TestMatchActor:
         """Test processing a player action"""
         ruleset_dict = RulesetHelper.create_ruleset_with_actions([
             {
-                "id": 1,
+                "id": 301,
                 "name": "Test Action",
                 "timing": "stack",
-                "phase_ids": [1],
+                "phase_ids": [200],
+                "preconditions": [],
+                "costs": [],
+                "targets": []
+            },
+            {
+                "id": 302,
+                "name": "End Phase",
+                "timing": "stack",
+                "phase_ids": [200],
                 "preconditions": [],
                 "costs": [],
                 "targets": []
             }
         ])
+
+        inputPhases = RulesetHelper._get_default_phase_component()
+        inputPhases["workflow_graph"]["edges"] = [
+            {"from_node_id": "__start__", "to_node_id": "input_phase", "edge_type": "simple"},
+            {"from_node_id": "input_phase", "to_node_id": "__end__", "edge_type": "input", "trigger_input_id": 302}
+        ]
+        ruleset_dict["component_definitions"] = [inputPhases, RulesetHelper._get_default_turn_component()]
+        
         ruleset = RulesetIR.from_dict(ruleset_dict)
         actor = MatchActor("test_match", ruleset.to_dict(), seed=42)
         await actor.begin_game()
         
         action = {
-            "type": 1,
+            "type": 301,
             "player_id": "player1"
         }
         

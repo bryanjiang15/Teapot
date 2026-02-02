@@ -23,7 +23,7 @@ from TeapotEngine.ruleset.rule_definitions.RuleDefinition import SelectableObjec
 from TeapotEngine.ruleset.ComponentDefinition import ComponentType
 from TeapotEngine.ruleset.state_watcher import TriggerType
 from TeapotEngine.ruleset.system_models.SystemEvent import *
-
+ 
 
 class MatchActor:
     """Single-threaded actor that manages a match's game state"""

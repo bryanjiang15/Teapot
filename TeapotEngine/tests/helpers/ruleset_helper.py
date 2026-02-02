@@ -91,6 +91,7 @@ class RulesetHelper:
             },
             "actions": [],
             "rules": [],
+            "game_component": RulesetHelper._get_default_game_component(),
             "component_definitions": [
                 RulesetHelper._get_default_turn_component(),
                 RulesetHelper._get_default_phase_component()
@@ -100,7 +101,7 @@ class RulesetHelper:
     @staticmethod
     def create_ruleset_with_phases(phases: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with specific phases"""
-        ruleset = RulesetHelper.create_ruleset_with_game_component()
+        ruleset = RulesetHelper.create_minimal_ruleset()
         ruleset["turn_structure"]["phases"] = phases
         if phases:
             ruleset["turn_structure"]["initial_phase_id"] = phases[0]["id"]
@@ -109,14 +110,14 @@ class RulesetHelper:
     @staticmethod
     def create_ruleset_with_actions(actions: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with specific actions"""
-        ruleset = RulesetHelper.create_ruleset_with_game_component()
+        ruleset = RulesetHelper.create_minimal_ruleset()
         ruleset["actions"] = actions
         return ruleset
     
     @staticmethod
     def create_ruleset_with_components(components: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with component definitions"""
-        ruleset = RulesetHelper.create_ruleset_with_game_component()
+        ruleset = RulesetHelper.create_minimal_ruleset()
         # Keep default turn/phase components and add the custom ones
         default_components = [
             RulesetHelper._get_default_turn_component(),
@@ -128,7 +129,7 @@ class RulesetHelper:
     @staticmethod
     def create_ruleset_with_resources(resources: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Create a ruleset with resource definitions"""
-        ruleset = RulesetHelper.create_ruleset_with_game_component()
+        ruleset = RulesetHelper.create_minimal_ruleset()
         # Resources are typically part of component definitions
         # Create a player component with the resources
         player_component = {
@@ -200,23 +201,7 @@ class RulesetHelper:
         return {
             "version": "1.0.0",
             "metadata": {"name": "Test Ruleset", "author": "Test"},
-            "game_component": {
-                "id": 1,
-                "name": "Base Game",
-                "component_type": "game",
-                "phases": [
-                    {
-                        "id": 1,
-                        "name": "Main Phase",
-                        "steps": [{"id": 1, "name": "Main Step", "mandatory": True}]
-                    }
-                ],
-                "global_zones": [],
-                "max_players": 2,
-                "win_conditions": [],
-                "triggers": [],
-                "resources": []
-            },
+            "game_component": RulesetHelper._get_default_game_component(),
             "turn_structure": {},
             "actions": [],
             "rules": [],
