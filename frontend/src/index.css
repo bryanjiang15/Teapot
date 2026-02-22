@@ -1,105 +1,116 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
-@layer base {
-  :root {
-    --background: 44 42% 97%;
-    --foreground: 0 0% 24%;
-    --card: 44 42% 97%;
-    --card-foreground: 0 0% 24%;
-    --popover: 44 42% 97%;
-    --popover-foreground: 0 0% 24%;
-    --primary: 23 100% 63%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 35 36% 90%;
-    --secondary-foreground: 0 0% 24%;
-    --muted: 35 36% 90%;
-    --muted-foreground: 0 0% 42%;
-    --accent: 35 36% 90%;
-    --accent-foreground: 0 0% 24%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 30 20% 80%;
-    --input: 30 20% 80%;
-    --ring: 23 100% 63%;
-    --radius: 0.5rem;
-  }
+/* Wooden pastel design system – theme for Tailwind v4 */
+@theme {
+  /* Colors (--color-* → bg-*, text-*, border-*, etc.) */
+  --color-background: hsl(44 42% 97%);
+  --color-foreground: hsl(30 15% 22%);
+  --color-card: hsl(40 33% 97%);
+  --color-card-foreground: hsl(30 15% 22%);
+  --color-card-border: hsl(30 25% 82%);
+  --color-primary: hsl(24 100% 55%);
+  --color-primary-foreground: hsl(0 0% 100%);
+  --color-primary-hover: hsl(24 100% 50%);
+  --color-primary-muted: hsl(24 80% 92%);
+  --color-secondary: hsl(35 36% 92%);
+  --color-secondary-foreground: hsl(30 15% 28%);
+  --color-muted: hsl(35 30% 92%);
+  --color-muted-foreground: hsl(30 10% 45%);
+  --color-accent: hsl(35 36% 90%);
+  --color-accent-foreground: hsl(30 15% 22%);
+  --color-border: hsl(30 22% 82%);
+  --color-input: hsl(30 22% 88%);
+  --color-ring: hsl(24 100% 55%);
+  --color-destructive: hsl(0 84% 55%);
+  --color-destructive-foreground: hsl(0 0% 100%);
+  --color-success: hsl(142 45% 42%);
+  --color-success-foreground: hsl(0 0% 100%);
+  --color-warning: hsl(38 85% 48%);
+  --color-warning-foreground: hsl(0 0% 100%);
+  /* Radius */
+  --radius-lg: 0.75rem;
+  --radius-md: calc(0.75rem - 2px);
+  --radius-sm: calc(0.75rem - 4px);
+  /* Shadow */
+  --shadow-glow: 0 0 24px rgb(255 140 66 / 0.2);
+  --shadow-sm: 0 1px 2px 0 rgb(139 115 85 / 0.06);
+  --shadow-lg: 0 10px 15px -3px rgb(139 115 85 / 0.08), 0 4px 6px -2px rgb(139 115 85 / 0.04);
+  /* Font */
+  --font-heading: "Poppins", system-ui, sans-serif;
 }
 
+/* Base & custom layers */
 @layer base {
   * {
-    border-color: hsl(var(--border));
+    border-color: var(--color-border);
   }
   body {
-    background-color: #FFF8F0;
-    color: #3E3E3E;
-    font-family: 'Inter', sans-serif;
+    background-color: #fff8f0;
+    color: var(--color-foreground);
+    font-family: "Inter", system-ui, sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Poppins', sans-serif;
+    font-family: var(--font-heading);
     font-weight: 600;
   }
 }
 
-/* Custom wood texture pattern */
-.wood-texture {
-  background-image: 
-    repeating-linear-gradient(
-      90deg,
-      rgba(139, 115, 85, 0.03) 0px,
-      rgba(139, 115, 85, 0.03) 1px,
-      transparent 1px,
-      transparent 40px
-    );
+@layer components {
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(24 100% 58%), hsl(24 100% 50%));
+  }
+  .gradient-card {
+    background: linear-gradient(145deg, hsl(40 33% 98%), hsl(40 28% 95%));
+  }
+  .gradient-hero {
+    background: linear-gradient(135deg, hsl(44 42% 97%) 0%, hsl(40 35% 94%) 100%);
+  }
+  .wood-texture {
+    background-image:
+      repeating-linear-gradient(
+        90deg,
+        rgba(139, 115, 85, 0.025) 0px,
+        rgba(139, 115, 85, 0.025) 1px,
+        transparent 1px,
+        transparent 40px
+      );
+  }
 }
 
-/* Wood border style */
-.wood-border {
-  border: 2px solid #8B7355;
-  border-radius: 12px;
-}
-
-/* Pastel badge styles */
+/* Pastel badges */
 .badge-green {
-  background-color: #B8DDB8;
-  color: white;
+  background-color: #b8ddb8;
+  color: #2d5a2d;
 }
-
 .badge-blue {
-  background-color: #B8D8E8;
-  color: white;
+  background-color: #b8d8e8;
+  color: #1e4d66;
 }
-
 .badge-purple {
-  background-color: #D8C7E8;
-  color: white;
+  background-color: #d8c7e8;
+  color: #4a3d5c;
 }
-
 .badge-yellow {
-  background-color: #F5E6B8;
-  color: white;
+  background-color: #f5e6b8;
+  color: #6b5d2e;
 }
 
-/* Orange button hover effect */
+/* Primary CTA button */
 .btn-orange {
-  background-color: #FF8C42;
+  background: linear-gradient(135deg, hsl(24 100% 58%), hsl(24 100% 50%));
   color: white;
-  transition: all 200ms;
+  transition: all 0.2s ease;
 }
-
 .btn-orange:hover {
-  background-color: #FF7A2B;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  background: linear-gradient(135deg, hsl(24 100% 52%), hsl(24 100% 46%));
+  box-shadow: var(--shadow-glow);
+  transform: translateY(-1px);
 }
 
-/* Card hover effect */
 .card-hover {
-  transition: all 200ms;
+  transition: all 0.25s ease;
 }
-
 .card-hover:hover {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
 }

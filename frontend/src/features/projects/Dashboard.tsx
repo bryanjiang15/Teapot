@@ -1,40 +1,38 @@
 import { useState } from 'react'
-import { OrangeButton } from '@/components/shared/OrangeButton'
-import { PastelBadge } from '@/components/shared/PastelBadge'
 import { ProjectCard } from './ProjectCard'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Grid, List, Search, Plus, Sparkles } from 'lucide-react'
 import type { Project } from '@/types/project'
 
-// Mock data for now
 const mockProjects: Project[] = [
   {
     id: '1',
     name: 'Dragon Legends TCG',
-    description: 'Epic fantasy trading card game with dragons, magic, and ancient artifacts. Features...',
+    description: 'Epic fantasy trading card game with dragons, magic, and ancient artifacts.',
     status: 'development',
     aiAssistantType: 'Creative Master AI',
     createdAt: '2024-01-15',
-    updatedAt: '2024-01-20',
+    updatedAt: 'Jan 20, 2024',
   },
   {
     id: '2',
     name: 'Cyber Wars',
-    description: 'Futuristic cyberpunk TCG set in a dystopian world where hackers battle through digital...',
+    description: 'Futuristic cyberpunk TCG set in a dystopian world where hackers battle through digital realms.',
     status: 'published',
     aiAssistantType: 'Strategy AI Pro',
     createdAt: '2024-01-10',
-    updatedAt: '2024-01-18',
+    updatedAt: 'Jan 18, 2024',
   },
   {
     id: '3',
     name: "Nature's Guardians",
-    description: 'Environmental-themed card game focusing on protecting nature and wildlife through...',
+    description: 'Environmental-themed card game focusing on protecting nature and wildlife.',
     status: 'draft',
     aiAssistantType: 'Eco Design AI',
     createdAt: '2024-01-12',
-    updatedAt: '2024-01-19',
+    updatedAt: 'Jan 19, 2024',
   },
 ]
 
@@ -42,87 +40,81 @@ export function Dashboard() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const filteredProjects = mockProjects.filter((project) =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredProjects = mockProjects.filter(
+    (project) =>
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
-    <div className="min-h-screen p-6 md:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="mb-8 wood-texture bg-beige-light/50 rounded-xl p-8 border-2 border-wood-brown">
-          <div className="flex items-center gap-3 mb-4">
-            <PastelBadge color="purple" className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3" />
-              AI-Powered
-            </PastelBadge>
-            <PastelBadge color="blue">
-              {filteredProjects.length} Active Projects
-            </PastelBadge>
-          </div>
-          
-          <h1 className="text-4xl font-heading text-text-primary mb-4">
+    <div className="min-h-screen">
+      {/* Hero Section */}
+      <section className="gradient-hero border-b border-border py-12 md:py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Badge variant="secondary" className="mb-4 border-0">
+            <Sparkles className="h-4 w-4 mr-1" />
+            Your Studio
+          </Badge>
+          <h1 className="text-4xl font-heading font-bold text-foreground mb-4">
             Your Game Studio
           </h1>
-          
-          <p className="text-text-secondary max-w-3xl mb-6">
-            Create amazing Trading Card Games with the power of AI. Design, balance,
-            and publish your games with intelligent assistance.
+          <p className="text-lg text-muted-foreground max-w-2xl mb-8">
+            Create amazing Trading Card Games with the power of AI. Design, balance, and publish with intelligent assistance.
           </p>
-          
-          <OrangeButton size="lg" className="flex items-center gap-2">
-            <Plus className="w-5 h-5" />
+          <Button variant="hero" size="lg" className="gap-2">
+            <Plus className="h-5 w-5" />
             Create New Project
-          </OrangeButton>
+          </Button>
         </div>
+      </section>
 
-        {/* Search and Controls */}
+      {/* Search and controls */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               placeholder="Search projects..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-11"
             />
           </div>
-          
           <div className="flex gap-2">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'outline'}
               size="icon"
               onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
             >
-              <Grid className="w-4 h-4" />
+              <Grid className="h-4 w-4" />
             </Button>
             <Button
               variant={viewMode === 'list' ? 'default' : 'outline'}
               size="icon"
               onClick={() => setViewMode('list')}
+              aria-label="List view"
             >
-              <List className="w-4 h-4" />
+              <List className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Projects Grid */}
+        {/* Projects grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredProjects.map((project) => (
             <ProjectCard key={project.id} project={project} />
           ))}
         </div>
 
-        {/* Empty State */}
         {filteredProjects.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-text-secondary text-lg">
-              No projects found. Try a different search or create a new project!
+          <div className="text-center py-16 rounded-lg border border-border bg-card/50">
+            <p className="text-muted-foreground">
+              No projects match your search. Try a different query or create a new project.
             </p>
           </div>
         )}
-      </div>
+      </section>
     </div>
   )
 }

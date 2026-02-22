@@ -4,16 +4,16 @@ import { useLoginMutation } from './authApi'
 import { useAppDispatch } from '@/app/hooks'
 import { setCredentials } from './authSlice'
 import { Input } from '@/components/ui/input'
-import { OrangeButton } from '@/components/shared/OrangeButton'
-import { WoodCard } from '@/components/shared/WoodCard'
-import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 import { Gamepad2 } from 'lucide-react'
 
 export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  
+
   const [login, { isLoading }] = useLoginMutation()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
@@ -21,7 +21,7 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
+
     try {
       const response = await login({ email, password }).unwrap()
       dispatch(setCredentials({
@@ -30,55 +30,52 @@ export function Login() {
         user: response.user,
       }))
       navigate('/dashboard')
-    } catch (err: any) {
-      setError(err?.data?.detail || 'Failed to login. Please try again.')
+    } catch (err: unknown) {
+      setError((err as { data?: { detail?: string } })?.data?.detail || 'Failed to login. Please try again.')
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-cream-bg wood-texture p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+    <div className="min-h-screen flex items-center justify-center bg-background wood-texture p-4">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 rounded-lg bg-orange-primary flex items-center justify-center">
-              <Gamepad2 className="w-6 h-6 text-white" />
+            <div className="gradient-primary p-3 rounded-xl shadow-sm">
+              <Gamepad2 className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-heading text-text-primary">TCG Creator</h1>
+            <h1 className="text-3xl font-heading font-bold text-foreground">TCG Creator</h1>
           </div>
-          <p className="text-text-secondary">AI-Powered Game Studio</p>
+          <p className="text-muted-foreground">AI-Powered Game Studio</p>
         </div>
-        
-        <WoodCard>
-          <CardHeader>
-            <CardTitle className="text-2xl font-heading">Welcome Back</CardTitle>
-            <CardDescription>Login to continue creating amazing games</CardDescription>
+
+        <Card className="gradient-card border border-card-border shadow-lg card-hover overflow-hidden">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-heading">Welcome back</CardTitle>
+            <CardDescription>Sign in to continue creating amazing games</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                   {error}
                 </div>
               )}
-              
+
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-text-primary">
-                  Email
-                </label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your@email.com"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-text-primary">
-                  Password
-                </label>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -86,26 +83,23 @@ export function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="current-password"
                 />
               </div>
-              
-              <OrangeButton
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Logging in...' : 'Login'}
-              </OrangeButton>
-              
-              <p className="text-center text-sm text-text-secondary">
-                Don't have an account?{' '}
-                <Link to="/register" className="text-orange-primary hover:text-orange-hover font-medium">
-                  Register here
+
+              <Button variant="hero" type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Signing in...' : 'Sign in'}
+              </Button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Don&apos;t have an account?{' '}
+                <Link to="/register" className="font-medium text-primary hover:underline">
+                  Register
                 </Link>
               </p>
             </form>
           </CardContent>
-        </WoodCard>
+        </Card>
       </div>
     </div>
   )

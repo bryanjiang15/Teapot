@@ -1,10 +1,9 @@
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useNavigate, NavLink } from 'react-router-dom'
 import { useAppDispatch } from '@/app/hooks'
 import { logout } from '@/features/auth/authSlice'
-import { OrangeButton } from '@/components/shared/OrangeButton'
-import { PastelBadge } from '@/components/shared/PastelBadge'
 import { Button } from '@/components/ui/button'
-import { Gamepad2, Sparkles, Plus, LogOut } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Gamepad2, Sparkles, Plus, LogOut, Home, Compass, User } from 'lucide-react'
 
 export function MainLayout() {
   const dispatch = useAppDispatch()
@@ -16,71 +15,90 @@ export function MainLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-cream-bg wood-texture flex flex-col">
-      {/* Top Navigation */}
-      <header className="bg-white/80 backdrop-blur-sm border-b-2 border-wood-brown shadow-sm sticky top-0 z-50">
+    <div className="min-h-screen bg-background wood-texture flex flex-col">
+      <nav className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link to="/dashboard" className="flex items-center gap-2">
-              <div className="w-10 h-10 rounded-lg bg-orange-primary flex items-center justify-center">
-                <Gamepad2 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-heading text-text-primary">TCG Creator</h1>
-                <p className="text-xs text-text-secondary">AI-Powered Game Studio</p>
-              </div>
-            </Link>
+            <div className="flex items-center space-x-4">
+              <NavLink to="/dashboard" className="flex items-center space-x-2">
+                <div className="gradient-primary p-2 rounded-lg shadow-sm">
+                  <Gamepad2 className="h-6 w-6 text-primary-foreground" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-heading font-bold text-foreground">TCG Creator</h1>
+                  <p className="text-xs text-muted-foreground">AI-Powered Game Studio</p>
+                </div>
+              </NavLink>
+            </div>
 
             {/* Navigation Links */}
-            <nav className="hidden md:flex items-center gap-6">
-              <Link
+            <div className="hidden md:flex items-center space-x-1">
+              <NavLink
                 to="/dashboard"
-                className="text-text-primary hover:text-orange-primary font-medium transition-colors"
+                className={({ isActive }) =>
+                  `flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`
+                }
               >
-                Workspace
-              </Link>
-              <Link
+                <Home className="h-4 w-4" />
+                <span>Workspace</span>
+              </NavLink>
+              <NavLink
                 to="/explore"
-                className="text-text-primary hover:text-orange-primary font-medium transition-colors"
+                className={({ isActive }) =>
+                  `flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`
+                }
               >
-                Explore
-              </Link>
-              <Link
+                <Compass className="h-4 w-4" />
+                <span>Explore</span>
+              </NavLink>
+              <NavLink
                 to="/profile"
-                className="text-text-primary hover:text-orange-primary font-medium transition-colors"
+                className={({ isActive }) =>
+                  `flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`
+                }
               >
-                Profile
-              </Link>
-            </nav>
+                <User className="h-4 w-4" />
+                <span>Profile</span>
+              </NavLink>
+            </div>
 
-            {/* Right Side Actions */}
-            <div className="flex items-center gap-4">
-              <PastelBadge color="purple" className="hidden sm:flex items-center gap-1">
-                <Sparkles className="w-3 h-3" />
-                AI Powered
-              </PastelBadge>
-              
-              <OrangeButton size="sm" className="flex items-center gap-2">
-                <Plus className="w-4 h-4" />
+            {/* Actions */}
+            <div className="flex items-center space-x-3">
+              <Badge variant="secondary" className="hidden sm:flex items-center space-x-1 border-0">
+                <Sparkles className="h-3 w-3" />
+                <span className="text-xs">AI Powered</span>
+              </Badge>
+              <Button variant="hero" size="sm">
+                <Plus className="h-4 w-4" />
                 <span className="hidden sm:inline">New Project</span>
-              </OrangeButton>
-              
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={handleLogout}
-                className="text-text-secondary hover:text-text-primary"
+                className="text-muted-foreground hover:text-foreground"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </div>
-      </header>
+      </nav>
 
-      {/* Main Content */}
-      <main className="flex-1">
+      <main className="relative flex-1">
         <Outlet />
       </main>
     </div>

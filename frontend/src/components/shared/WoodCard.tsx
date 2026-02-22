@@ -11,7 +11,7 @@ export const WoodCard = React.forwardRef<HTMLDivElement, WoodCardProps>(
     return (
       <Card
         ref={ref}
-        className={cn("wood-border wood-texture card-hover", className)}
+        className={cn("gradient-card border border-card-border wood-texture card-hover rounded-lg", className)}
         {...props}
       >
         {children}

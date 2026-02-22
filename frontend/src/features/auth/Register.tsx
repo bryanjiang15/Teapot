@@ -4,9 +4,9 @@ import { useRegisterMutation } from './authApi'
 import { useAppDispatch } from '@/app/hooks'
 import { setCredentials } from './authSlice'
 import { Input } from '@/components/ui/input'
-import { OrangeButton } from '@/components/shared/OrangeButton'
-import { WoodCard } from '@/components/shared/WoodCard'
-import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Label } from '@/components/ui/label'
 import { Gamepad2 } from 'lucide-react'
 
 export function Register() {
@@ -15,7 +15,7 @@ export function Register() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [username, setUsername] = useState('')
   const [error, setError] = useState('')
-  
+
   const [register, { isLoading }] = useRegisterMutation()
   const dispatch = useAppDispatch()
   const navigate = useNavigate()
@@ -23,12 +23,12 @@ export function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    
+
     if (password !== confirmPassword) {
       setError('Passwords do not match')
       return
     }
-    
+
     try {
       const response = await register({ email, password, username }).unwrap()
       dispatch(setCredentials({
@@ -37,68 +37,64 @@ export function Register() {
         user: response.user,
       }))
       navigate('/dashboard')
-    } catch (err: any) {
-      setError(err?.data?.detail || 'Failed to register. Please try again.')
+    } catch (err: unknown) {
+      setError((err as { data?: { detail?: string } })?.data?.detail || 'Failed to register. Please try again.')
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-cream-bg wood-texture p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+    <div className="min-h-screen flex items-center justify-center bg-background wood-texture p-4">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
           <div className="inline-flex items-center gap-2 mb-4">
-            <div className="w-12 h-12 rounded-lg bg-orange-primary flex items-center justify-center">
-              <Gamepad2 className="w-6 h-6 text-white" />
+            <div className="gradient-primary p-3 rounded-xl shadow-sm">
+              <Gamepad2 className="w-8 h-8 text-primary-foreground" />
             </div>
-            <h1 className="text-3xl font-heading text-text-primary">TCG Creator</h1>
+            <h1 className="text-3xl font-heading font-bold text-foreground">TCG Creator</h1>
           </div>
-          <p className="text-text-secondary">AI-Powered Game Studio</p>
+          <p className="text-muted-foreground">AI-Powered Game Studio</p>
         </div>
-        
-        <WoodCard>
-          <CardHeader>
-            <CardTitle className="text-2xl font-heading">Create Account</CardTitle>
-            <CardDescription>Join us to start creating amazing games</CardDescription>
+
+        <Card className="gradient-card border border-card-border shadow-lg card-hover overflow-hidden">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-heading">Create account</CardTitle>
+            <CardDescription>Join to start creating amazing games with AI</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-800 text-sm">
+                <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                   {error}
                 </div>
               )}
-              
+
               <div className="space-y-2">
-                <label htmlFor="username" className="text-sm font-medium text-text-primary">
-                  Username (optional)
-                </label>
+                <Label htmlFor="username">Username (optional)</Label>
                 <Input
                   id="username"
                   type="text"
                   placeholder="GameCreator123"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium text-text-primary">
-                  Email
-                </label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your@email.com"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoComplete="email"
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-text-primary">
-                  Password
-                </label>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -106,13 +102,12 @@ export function Register() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="new-password"
                 />
               </div>
-              
+
               <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-medium text-text-primary">
-                  Confirm Password
-                </label>
+                <Label htmlFor="confirmPassword">Confirm password</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -120,26 +115,23 @@ export function Register() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  autoComplete="new-password"
                 />
               </div>
-              
-              <OrangeButton
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
-                {isLoading ? 'Creating account...' : 'Register'}
-              </OrangeButton>
-              
-              <p className="text-center text-sm text-text-secondary">
+
+              <Button variant="hero" type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? 'Creating account...' : 'Create account'}
+              </Button>
+
+              <p className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
-                <Link to="/login" className="text-orange-primary hover:text-orange-hover font-medium">
-                  Login here
+                <Link to="/login" className="font-medium text-primary hover:underline">
+                  Sign in
                 </Link>
               </p>
             </form>
           </CardContent>
-        </WoodCard>
+        </Card>
       </div>
     </div>
   )
