@@ -29,7 +29,22 @@ class UserResponse(UserBase):
     is_active: bool
     created_at: datetime
     
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True
+    )
+    
+    @classmethod
+    def model_validate(cls, obj):
+        """Custom validation to map PascalCase model attributes to snake_case schema fields"""
+        if hasattr(obj, 'UserId'):
+            return cls(
+                email=obj.Email,
+                id=obj.UserId,
+                is_active=obj.IsActive,
+                created_at=obj.DateCreated
+            )
+        return super().model_validate(obj)
 
 
 class Token(BaseModel):

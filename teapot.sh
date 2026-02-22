@@ -68,6 +68,18 @@ kill_port() {
     return 1
 }
 
+# Open URL in default browser (new window)
+open_browser() {
+    local url=$1
+    (sleep 3 && (
+        case "$(uname -s)" in
+            Darwin)  open "$url" ;;
+            Linux)   xdg-open "$url" 2>/dev/null || sensible-browser "$url" 2>/dev/null || true ;;
+            *)      true ;;
+        esac
+    )) &
+}
+
 # ============================================================================
 # Start Functions
 # ============================================================================
@@ -127,6 +139,8 @@ start_frontend() {
     
     echo -e "${GREEN}   ✓ Frontend started (PID: $pid)${NC}"
     sleep 2
+    echo -e "${BLUE}   Opening frontend in browser...${NC}"
+    open_browser "http://localhost:5173"
     return 0
 }
 
