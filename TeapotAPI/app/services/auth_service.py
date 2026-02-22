@@ -63,7 +63,7 @@ class AuthService:
         user = await self.user_repo.get_user_by_email(email)
         if not user:
             return None
-        if not self.verify_password(password, user.password_hash):
+        if not self.verify_password(password, user.PasswordHash):
             return None
         return user
     
@@ -73,7 +73,7 @@ class AuthService:
         if not user:
             raise ValueError("Invalid email or password")
         
-        access_token = self.create_access_token(data={"sub": str(user.id)})
+        access_token = self.create_access_token(data={"sub": str(user.UserId)})
         return Token(access_token=access_token, token_type="bearer")
     
     def verify_token(self, token: str) -> Optional[str]:
