@@ -1,4 +1,4 @@
-export type NodeCategory = 'event' | 'function' | 'flow' | 'variable' | 'target'
+export type NodeCategory = 'event' | 'function' | 'flow' | 'variable' | 'target' | 'input'
 
 export type PortType = 'exec' | 'object' | 'number' | 'boolean' | 'string'
 
@@ -51,5 +51,9 @@ export const NODE_CATEGORIES = {
   target: {
     color: '#FF8C42',
     label: 'Target Selector',
+  },
+  input: {
+    color: '#E8D5B7',
+    label: 'Input',
   },
 }

@@ -162,6 +162,18 @@ export const NODE_TEMPLATES: Record<string, NodeData> = {
       { id: 'count', label: 'Count', type: 'number', value: 1 },
     ],
   },
+
+  // Input Nodes (wait for user input)
+  'input-wait': {
+    label: 'Wait for Input',
+    category: 'input',
+    inputs: [{ id: 'exec', type: 'exec', label: '' }],
+    outputs: [
+      { id: 'exec', type: 'exec', label: '' },
+      { id: 'value', type: 'object', label: 'Input' },
+    ],
+    parameters: [],
+  },
 }
 
 export function getNodeTemplate(type: string): NodeData {
