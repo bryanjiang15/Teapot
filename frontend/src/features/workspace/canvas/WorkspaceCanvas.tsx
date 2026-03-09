@@ -15,13 +15,15 @@ import {
 import '@xyflow/react/dist/style.css'
 import { CustomNode } from '../nodes/CustomNode'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, ZoomIn, ZoomOut } from 'lucide-react'
+import { ChevronDown, Layout, Workflow, ZoomIn, ZoomOut } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import {
   loadProject,
+  setActiveWorkspaceTab,
   setSelectedComponentId,
   updateComponentGraph,
 } from '../workspaceSlice'
+import { SceneEditor } from '../scene/SceneEditor'
 import { getMockProject } from '../mockProjectData'
 import { NODE_CATEGORIES } from '@/types/nodes'
 import { cn } from '@/lib/utils'
@@ -32,9 +34,8 @@ interface WorkspaceCanvasProps {
 
 export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
   const dispatch = useAppDispatch()
-  const { currentProject, components, selectedComponentId } = useAppSelector(
-    (state) => state.workspace
-  )
+  const { activeWorkspaceTab, currentProject, components, selectedComponentId } =
+    useAppSelector((state) => state.workspace)
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -128,13 +129,13 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
   )
 
   return (
-    <div className="relative h-full bg-cream-bg">
+    <div className="flex flex-col h-full bg-cream-bg">
       {/* Top Toolbar */}
-      <div className="absolute top-0 left-0 right-0 z-10 p-4 bg-white/80 backdrop-blur-sm border-b-2 border-wood-brown">
+      <div className="z-10 p-4 bg-white/80 backdrop-blur-sm border-b-2 border-wood-brown">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="relative" ref={dropdownRef}>
-            <Button
+              <Button
               variant="outline"
               className="flex items-center gap-2 min-w-[180px] justify-between"
               onClick={() => setDropdownOpen((o) => !o)}
@@ -189,6 +190,35 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
                 <span className="font-medium text-foreground">{selectedComponent.name}</span>
               </span>
             )}
+            {/* Node / Scene tab toggle */}
+            <div className="flex rounded-lg border border-border p-0.5 bg-muted/50">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'gap-1.5 rounded-md',
+                  activeWorkspaceTab === 'node' &&
+                    'bg-background text-foreground shadow-sm'
+                )}
+                onClick={() => dispatch(setActiveWorkspaceTab('node'))}
+              >
+                <Workflow className="w-4 h-4" />
+                Node
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'gap-1.5 rounded-md',
+                  activeWorkspaceTab === 'scene' &&
+                    'bg-background text-foreground shadow-sm'
+                )}
+                onClick={() => dispatch(setActiveWorkspaceTab('scene'))}
+              >
+                <Layout className="w-4 h-4" />
+                Scene
+              </Button>
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -203,41 +233,47 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
         </div>
       </div>
 
-      {/* React Flow Canvas */}
-      {selectedComponentId ? (
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          nodeTypes={nodeTypes}
-          defaultEdgeOptions={edgeOptions}
-          fitView
-          className="wood-texture"
-        >
-          <Background
-            variant={BackgroundVariant.Dots}
-            gap={20}
-            size={1}
-            color="#8B7355"
-          />
-          <Controls className="bg-white/80 border-wood-brown" />
-          <MiniMap
-            className="bg-white/80 border-2 border-wood-brown"
-            nodeColor={(node) => {
-              const data = node.data as { category?: keyof typeof NODE_CATEGORIES }
-              return data?.category
-                ? NODE_CATEGORIES[data.category]?.color ?? '#ccc'
-                : '#ccc'
-            }}
-          />
-        </ReactFlow>
-      ) : (
-        <div className="flex items-center justify-center h-full text-muted-foreground">
-          <p className="text-sm">Select a component from the dropdown</p>
-        </div>
-      )}
+      {/* Node tab: React Flow | Scene tab: Scene editor */}
+      <div className="flex-1 relative">
+        {selectedComponentId ? (
+          activeWorkspaceTab === 'node' ? (
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodeTypes={nodeTypes}
+              defaultEdgeOptions={edgeOptions}
+              fitView
+              className="wood-texture"
+            >
+              <Background
+                variant={BackgroundVariant.Dots}
+                gap={20}
+                size={1}
+                color="#8B7355"
+              />
+              <Controls className="bg-white/80 border-wood-brown" />
+              <MiniMap
+                className="bg-white/80 border-2 border-wood-brown"
+                nodeColor={(node) => {
+                  const data = node.data as { category?: keyof typeof NODE_CATEGORIES }
+                  return data?.category
+                    ? NODE_CATEGORIES[data.category]?.color ?? '#ccc'
+                    : '#ccc'
+                }}
+              />
+            </ReactFlow>
+          ) : (
+            <SceneEditor />
+          )
+        ) : (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <p className="text-sm">Select a component from the dropdown</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

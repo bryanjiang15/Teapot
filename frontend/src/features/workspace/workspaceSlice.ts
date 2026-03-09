@@ -1,7 +1,37 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { Node, Edge } from '@xyflow/react'
 import type { ProjectComponent, ProjectWithComponents } from '@/types/project'
+import type { SceneEntity, SceneEntityType, SceneRoot, SceneTransform } from '@/types/scene'
+import { DEFAULT_TRANSFORM } from '@/types/scene'
 import { NODE_TEMPLATES } from '@/lib/nodeRegistry'
+
+function generateSceneEntityId(): string {
+  return `entity-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+}
+
+function findEntityInTree(root: SceneEntity | null, id: string): SceneEntity | null {
+  if (!root) return null
+  if (root.id === id) return root
+  for (const child of root.children) {
+    const found = findEntityInTree(child, id)
+    if (found) return found
+  }
+  return null
+}
+
+function findParentInTree(
+  root: SceneEntity | null,
+  childId: string
+): { parent: SceneEntity; index: number } | null {
+  if (!root) return null
+  const idx = root.children.findIndex((c) => c.id === childId)
+  if (idx >= 0) return { parent: root, index: idx }
+  for (const child of root.children) {
+    const found = findParentInTree(child, childId)
+    if (found) return found
+  }
+  return null
+}
 
 interface WorkspaceState {
   nodes: Node[]
@@ -16,6 +46,10 @@ interface WorkspaceState {
   components: ProjectComponent[]
   /** ID of the component whose graph is shown on the canvas. */
   selectedComponentId: string | null
+  /** Active tab: node graph or scene visual editor. */
+  activeWorkspaceTab: 'node' | 'scene'
+  /** Selected entity in the scene hierarchy (Scene tab). */
+  selectedSceneEntityId: string | null
 }
 
 const initialState: WorkspaceState = {
@@ -28,6 +62,8 @@ const initialState: WorkspaceState = {
   currentProject: null,
   components: [],
   selectedComponentId: null,
+  activeWorkspaceTab: 'node',
+  selectedSceneEntityId: null,
 }
 
 const workspaceSlice = createSlice({
@@ -78,6 +114,12 @@ const workspaceSlice = createSlice({
     setSelectedComponentId: (state, action: PayloadAction<string | null>) => {
       state.selectedComponentId = action.payload
     },
+    setActiveWorkspaceTab: (state, action: PayloadAction<'node' | 'scene'>) => {
+      state.activeWorkspaceTab = action.payload
+    },
+    setSelectedSceneEntityId: (state, action: PayloadAction<string | null>) => {
+      state.selectedSceneEntityId = action.payload
+    },
     /** Update nodes and edges for the component with the given id. */
     updateComponentGraph: (
       state,
@@ -118,6 +160,83 @@ const workspaceSlice = createSlice({
       }
       comp.nodes = [...comp.nodes, newNode]
     },
+    /** Set the full scene root for a component. */
+    setComponentScene: (
+      state,
+      action: PayloadAction<{ componentId: string; sceneRoot: SceneRoot }>
+    ) => {
+      const comp = state.components.find((c) => c.id === action.payload.componentId)
+      if (comp) comp.sceneRoot = action.payload.sceneRoot
+    },
+    /** Add a scene entity as child of parentEntityId, or as root if parentEntityId is null and no root. */
+    addSceneEntity: (
+      state,
+      action: PayloadAction<{
+        componentId: string
+        parentEntityId: string | null
+        name: string
+        type: SceneEntityType
+        transform?: Partial<SceneTransform>
+      }>
+    ) => {
+      const { componentId, parentEntityId, name, type, transform } = action.payload
+      const comp = state.components.find((c) => c.id === componentId)
+      if (!comp) return
+      const newEntity: SceneEntity = {
+        id: generateSceneEntityId(),
+        name,
+        type,
+        transform: { ...DEFAULT_TRANSFORM, ...transform },
+        children: [],
+      }
+      if (parentEntityId === null) {
+        if (!comp.sceneRoot) {
+          comp.sceneRoot = newEntity
+        } else {
+          comp.sceneRoot.children = [...comp.sceneRoot.children, newEntity]
+        }
+      } else {
+        const parent = findEntityInTree(comp.sceneRoot ?? null, parentEntityId)
+        if (parent) parent.children = [...parent.children, newEntity]
+      }
+    },
+    /** Update a scene entity by id. */
+    updateSceneEntity: (
+      state,
+      action: PayloadAction<{
+        componentId: string
+        entityId: string
+        patch: Partial<Pick<SceneEntity, 'name' | 'transform' | 'assetId' | 'componentRef' | 'slotKey'>>
+      }>
+    ) => {
+      const { componentId, entityId, patch } = action.payload
+      const comp = state.components.find((c) => c.id === componentId)
+      if (!comp) return
+      const entity = findEntityInTree(comp.sceneRoot ?? null, entityId)
+      if (entity) {
+        if (patch.name !== undefined) entity.name = patch.name
+        if (patch.transform !== undefined) entity.transform = { ...entity.transform, ...patch.transform }
+        if (patch.assetId !== undefined) entity.assetId = patch.assetId
+        if (patch.componentRef !== undefined) entity.componentRef = patch.componentRef
+        if (patch.slotKey !== undefined) entity.slotKey = patch.slotKey
+      }
+    },
+    /** Remove a scene entity by id (and clear selection if it was selected). */
+    removeSceneEntity: (
+      state,
+      action: PayloadAction<{ componentId: string; entityId: string }>
+    ) => {
+      const { componentId, entityId } = action.payload
+      if (state.selectedSceneEntityId === entityId) state.selectedSceneEntityId = null
+      const comp = state.components.find((c) => c.id === componentId)
+      if (!comp?.sceneRoot) return
+      const parentInfo = findParentInTree(comp.sceneRoot, entityId)
+      if (parentInfo) {
+        parentInfo.parent.children = parentInfo.parent.children.filter((c) => c.id !== entityId)
+      } else if (comp.sceneRoot.id === entityId) {
+        comp.sceneRoot = comp.sceneRoot.children[0] ?? null
+      }
+    },
   },
 })
 
@@ -135,9 +254,15 @@ export const {
   setCurrentProject,
   setComponents,
   setSelectedComponentId,
+  setActiveWorkspaceTab,
+  setSelectedSceneEntityId,
   updateComponentGraph,
   loadProject,
   addNodeToComponent,
+  setComponentScene,
+  addSceneEntity,
+  updateSceneEntity,
+  removeSceneEntity,
 } = workspaceSlice.actions
 
 export default workspaceSlice.reducer
