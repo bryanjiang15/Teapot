@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import init_db
 from app.api.auth import router as auth_router
+from app.api.projects import router as projects_router
+import app.models  # noqa: F401 — ensure all ORM models are registered for create_all
 
 # Create FastAPI app
 app = FastAPI(
@@ -27,6 +29,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(projects_router)
 
 
 @app.on_event("startup")

@@ -160,6 +160,17 @@ const workspaceSlice = createSlice({
       }
       comp.nodes = [...comp.nodes, newNode]
     },
+    /** Add a blank component to the project and select it. */
+    addComponent: (state, action: PayloadAction<{ id: string; name: string }>) => {
+      const newComponent: ProjectComponent = {
+        id: action.payload.id,
+        name: action.payload.name,
+        nodes: [],
+        edges: [],
+      }
+      state.components = [...state.components, newComponent]
+      state.selectedComponentId = newComponent.id
+    },
     /** Set the full scene root for a component. */
     setComponentScene: (
       state,
@@ -259,6 +270,7 @@ export const {
   updateComponentGraph,
   loadProject,
   addNodeToComponent,
+  addComponent,
   setComponentScene,
   addSceneEntity,
   updateSceneEntity,

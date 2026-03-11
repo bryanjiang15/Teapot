@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+// Save status: 'idle' | 'saving' | 'saved' | 'error'
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 import {
   ReactFlow,
   Background,
@@ -15,16 +17,17 @@ import {
 import '@xyflow/react/dist/style.css'
 import { CustomNode } from '../nodes/CustomNode'
 import { Button } from '@/components/ui/button'
-import { ChevronDown, Layout, Workflow, ZoomIn, ZoomOut } from 'lucide-react'
+import { ChevronDown, Layout, Plus, Workflow } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import {
+  addComponent,
   loadProject,
   setActiveWorkspaceTab,
   setSelectedComponentId,
   updateComponentGraph,
 } from '../workspaceSlice'
 import { SceneEditor } from '../scene/SceneEditor'
-import { getMockProject } from '../mockProjectData'
+import { useGetProjectWithComponentsQuery, useSaveProjectComponentsMutation } from '@/lib/api/projectsApi'
 import { NODE_CATEGORIES } from '@/types/nodes'
 import { cn } from '@/lib/utils'
 
@@ -37,7 +40,11 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
   const { activeWorkspaceTab, currentProject, components, selectedComponentId } =
     useAppSelector((state) => state.workspace)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const dropdownRef = useRef<HTMLDivElement>(null)
+  const hasLoadedRef = useRef(false)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const savedStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const selectedComponent = useMemo(
     () => components.find((c) => c.id === selectedComponentId) ?? null,
@@ -46,14 +53,52 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
   const nodes = selectedComponent?.nodes ?? []
   const edges = selectedComponent?.edges ?? []
 
-  // Load mock project when projectId is available
+  // Fetch real project data from the API
+  const { data: projectData } = useGetProjectWithComponentsQuery(projectId, {
+    skip: !projectId,
+  })
+  const [saveComponents] = useSaveProjectComponentsMutation()
+
+  // Load project into Redux when API data arrives
   useEffect(() => {
-    if (!projectId) return
-    const project = getMockProject(projectId)
-    if (project) {
-      dispatch(loadProject(project))
+    if (!projectData) return
+    dispatch(loadProject(projectData))
+    hasLoadedRef.current = true
+  }, [projectData, dispatch])
+
+  // Debounced auto-save — fires 2s after any change to the component list
+  useEffect(() => {
+    if (!hasLoadedRef.current || !currentProject) return
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+
+    saveTimerRef.current = setTimeout(async () => {
+      setSaveStatus('saving')
+      try {
+        await saveComponents({
+          projectId: currentProject.id,
+          components: components.map((c, i) => ({
+            id: c.id,
+            name: c.name,
+            description: c.description,
+            sort_order: i,
+            nodes: c.nodes,
+            edges: c.edges,
+            scene_root: c.sceneRoot,
+          })),
+        }).unwrap()
+        setSaveStatus('saved')
+        if (savedStatusTimerRef.current) clearTimeout(savedStatusTimerRef.current)
+        savedStatusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
+      } catch {
+        setSaveStatus('error')
+      }
+    }, 2000)
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [projectId, dispatch])
+  }, [components, currentProject, saveComponents])
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -154,8 +199,20 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
                 className="absolute top-full left-0 mt-1 py-1 min-w-[200px] bg-card border border-card-border rounded-lg shadow-lg z-20"
                 role="listbox"
               >
-                <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground border-b border-border">
-                  Components
+                <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
+                  <span className="text-xs font-medium text-muted-foreground">Components</span>
+                  <button
+                    className="text-muted-foreground hover:text-foreground transition-colors rounded p-0.5 hover:bg-secondary"
+                    title="Add component"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const id = `comp-${Date.now()}`
+                      const name = `Component ${components.length + 1}`
+                      dispatch(addComponent({ id, name }))
+                    }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                  </button>
                 </div>
                 {components.length === 0 ? (
                   <div className="px-3 py-4 text-sm text-muted-foreground">
@@ -221,15 +278,21 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <span className="text-sm text-text-secondary">100%</span>
-            <Button variant="outline" size="sm">
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-          </div>
+          {/* Save status indicator */}
+          {saveStatus !== 'idle' && (
+            <span
+              className={cn(
+                'text-xs ml-auto',
+                saveStatus === 'saving' && 'text-muted-foreground',
+                saveStatus === 'saved' && 'text-green-600',
+                saveStatus === 'error' && 'text-destructive',
+              )}
+            >
+              {saveStatus === 'saving' && 'Saving…'}
+              {saveStatus === 'saved' && 'Saved'}
+              {saveStatus === 'error' && 'Save failed'}
+            </span>
+          )}
         </div>
       </div>
 

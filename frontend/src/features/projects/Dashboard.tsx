@@ -4,43 +4,16 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Grid, List, Search, Plus, Sparkles } from 'lucide-react'
-import type { Project } from '@/types/project'
-
-const mockProjects: Project[] = [
-  {
-    id: '1',
-    name: 'Dragon Legends TCG',
-    description: 'Epic fantasy trading card game with dragons, magic, and ancient artifacts.',
-    status: 'development',
-    aiAssistantType: 'Creative Master AI',
-    createdAt: '2024-01-15',
-    updatedAt: 'Jan 20, 2024',
-  },
-  {
-    id: '2',
-    name: 'Cyber Wars',
-    description: 'Futuristic cyberpunk TCG set in a dystopian world where hackers battle through digital realms.',
-    status: 'published',
-    aiAssistantType: 'Strategy AI Pro',
-    createdAt: '2024-01-10',
-    updatedAt: 'Jan 18, 2024',
-  },
-  {
-    id: '3',
-    name: "Nature's Guardians",
-    description: 'Environmental-themed card game focusing on protecting nature and wildlife.',
-    status: 'draft',
-    aiAssistantType: 'Eco Design AI',
-    createdAt: '2024-01-12',
-    updatedAt: 'Jan 19, 2024',
-  },
-]
+import { useGetProjectsQuery, useCreateProjectMutation } from '@/lib/api/projectsApi'
 
 export function Dashboard() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [searchQuery, setSearchQuery] = useState('')
 
-  const filteredProjects = mockProjects.filter(
+  const { data: projects = [], isLoading } = useGetProjectsQuery()
+  const [createProject, { isLoading: isCreating }] = useCreateProjectMutation()
+
+  const filteredProjects = projects.filter(
     (project) =>
       project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       project.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -61,9 +34,26 @@ export function Dashboard() {
           <p className="text-lg text-muted-foreground max-w-2xl mb-8">
             Create amazing Trading Card Games with the power of AI. Design, balance, and publish with intelligent assistance.
           </p>
-          <Button variant="hero" size="lg" className="gap-2">
+          <Button
+            variant="hero"
+            size="lg"
+            className="gap-2"
+            disabled={isCreating}
+            onClick={async () => {
+              try {
+                await createProject({
+                  name: 'New Project',
+                  description: 'New Teapot project',
+                  gameType: 'tcg',
+                  aiAssistantType: 'Creative Master AI',
+                }).unwrap()
+              } catch {
+                // In a real app we might show a toast; for now, fail silently.
+              }
+            }}
+          >
             <Plus className="h-5 w-5" />
-            Create New Project
+            {isCreating ? 'Creating…' : 'Create New Project'}
           </Button>
         </div>
       </section>
@@ -101,18 +91,26 @@ export function Dashboard() {
         </div>
 
         {/* Projects grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProjects.map((project) => (
-            <ProjectCard key={project.id} project={project} />
-          ))}
-        </div>
+        {isLoading ? (
+          <div className="py-16 text-center text-muted-foreground">Loading projects...</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredProjects.map((project) => (
+                <ProjectCard key={project.id} project={project} />
+              ))}
+            </div>
 
-        {filteredProjects.length === 0 && (
-          <div className="text-center py-16 rounded-lg border border-border bg-card/50">
-            <p className="text-muted-foreground">
-              No projects match your search. Try a different query or create a new project.
-            </p>
-          </div>
+            {filteredProjects.length === 0 && (
+              <div className="text-center py-16 rounded-lg border border-border bg-card/50">
+                <p className="text-muted-foreground">
+                  {projects.length === 0
+                    ? 'You have no projects yet. Create your first project to get started.'
+                    : 'No projects match your search. Try a different query or create a new project.'}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>
