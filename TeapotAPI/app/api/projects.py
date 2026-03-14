@@ -17,6 +17,8 @@ from app.schemas.project import (
     ComponentResponse,
     SaveProjectComponentsRequest,
 )
+from app.schemas.ruleset import RulesetIRResponse, ScriptedComponentResponse
+from app.services.compiler.component_compiler import ComponentCompilerService
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -147,6 +149,101 @@ async def get_project_with_components(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     _assert_owner(project, current_user_id)
     return ProjectWithComponentsResponse.model_validate(project)
+
+
+@router.post("/{project_id}/compile", status_code=status.HTTP_200_OK)
+async def compile_project(
+    project_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Compile all components in the project.
+
+    Runs the full compilation pipeline (graph → blueprint → AI script) for
+    every component in the project and persists the results to the DB.
+
+    Returns a summary of which components compiled successfully and which failed.
+    """
+    _validate_project_id_or_404(project_id)
+    project_repo = ProjectRepository(db)
+    project = await project_repo.get_by_id(project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    _assert_owner(project, current_user_id)
+
+    comp_repo = ComponentRepository(db)
+    components = await comp_repo.list_by_project(project_id)
+
+    compiler = ComponentCompilerService()
+    results = {"compiled": [], "failed": []}
+
+    for component in components:
+        result = compiler.compile_component(component)
+        if result.success:
+            component.Kind = result.kind
+            component.Script = result.script
+            component.Properties = result.properties
+            component.EventSubscriptions = result.event_subscriptions
+            results["compiled"].append(str(component.ComponentId))
+        else:
+            results["failed"].append({
+                "id": str(component.ComponentId),
+                "name": component.Name,
+                "error": result.error,
+            })
+
+    await db.commit()
+    return {
+        "project_id": project_id,
+        "compiled_count": len(results["compiled"]),
+        "failed_count": len(results["failed"]),
+        "compiled": results["compiled"],
+        "failed": results["failed"],
+    }
+
+
+@router.get("/{project_id}/ruleset", response_model=RulesetIRResponse)
+async def get_project_ruleset(
+    project_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the compiled RulesetIR for the project.
+
+    Serves pre-compiled component definitions to TeapotEngine's RulesetLoader.
+    Components that have not yet been compiled (Script is None and Kind is None)
+    are omitted from the response.
+    """
+    _validate_project_id_or_404(project_id)
+    project_repo = ProjectRepository(db)
+    project = await project_repo.get_by_id(project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    _assert_owner(project, current_user_id)
+
+    comp_repo = ComponentRepository(db)
+    components = await comp_repo.list_by_project(project_id)
+
+    component_defs: list[ScriptedComponentResponse] = []
+    for comp in components:
+        if not comp.Kind:
+            continue  # not yet compiled
+        component_defs.append(ScriptedComponentResponse(
+            id=str(comp.ComponentId),
+            kind=comp.Kind,
+            name=comp.Name,
+            description=comp.Description,
+            script=comp.Script,
+            properties=comp.Properties or {},
+            event_subscriptions=comp.EventSubscriptions or [],
+        ))
+
+    return RulesetIRResponse(
+        version="2.0",
+        metadata={"project_id": project_id, "project_name": project.Name},
+        component_definitions=component_defs,
+        constants={},
+    )
 
 
 @router.put("/{project_id}/components", response_model=ProjectWithComponentsResponse)
