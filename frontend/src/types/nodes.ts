@@ -29,6 +29,8 @@ export interface NodeData {
   inputs: InputPort[]
   outputs: OutputPort[]
   parameters: Parameter[]
+  /** Natural-language behavior for CreatorAPI / compiler node_summary (AI script generation). */
+  behaviorDescription?: string
 }
 
 export const NODE_CATEGORIES = {

@@ -1,6 +1,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
 import type { Node, Edge } from '@xyflow/react'
 import type { ProjectComponent, ProjectWithComponents } from '@/types/project'
+import type { NodeData } from '@/types/nodes'
 import type { SceneEntity, SceneEntityType, SceneRoot, SceneTransform } from '@/types/scene'
 import { DEFAULT_TRANSFORM } from '@/types/scene'
 import { NODE_TEMPLATES } from '@/lib/nodeRegistry'
@@ -131,6 +132,18 @@ const workspaceSlice = createSlice({
         comp.edges = action.payload.edges
       }
     },
+    /** Shallow-merge fields into one node's data (e.g. behaviorDescription). */
+    updateComponentNodeData: (
+      state,
+      action: PayloadAction<{ componentId: string; nodeId: string; data: Partial<NodeData> }>
+    ) => {
+      const { componentId, nodeId, data: patch } = action.payload
+      const comp = state.components.find((c) => c.id === componentId)
+      if (!comp) return
+      const node = comp.nodes.find((n) => n.id === nodeId)
+      if (!node?.data || typeof node.data !== 'object') return
+      Object.assign(node.data as Record<string, unknown>, patch as Record<string, unknown>)
+    },
     /** Load project and its components; selects first component by default. */
     loadProject: (state, action: PayloadAction<ProjectWithComponents>) => {
       const project = action.payload
@@ -156,7 +169,7 @@ const workspaceSlice = createSlice({
           x: 150 + (count % 4) * 220,
           y: 100 + Math.floor(count / 4) * 120,
         },
-        data: { ...template },
+        data: { ...template, behaviorDescription: template.behaviorDescription ?? '' },
       }
       comp.nodes = [...comp.nodes, newNode]
     },
@@ -268,6 +281,7 @@ export const {
   setActiveWorkspaceTab,
   setSelectedSceneEntityId,
   updateComponentGraph,
+  updateComponentNodeData,
   loadProject,
   addNodeToComponent,
   addComponent,

@@ -16,6 +16,7 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { CustomNode } from '../nodes/CustomNode'
+import { WorkspaceGraphEditContext } from './WorkspaceGraphEditContext'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Layout, Plus, Workflow } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/app/hooks'
@@ -35,6 +36,21 @@ interface WorkspaceCanvasProps {
   projectId: string
 }
 
+interface SavePayloadComponent {
+  id?: string
+  name: string
+  description?: string
+  sort_order: number
+  nodes: unknown[]
+  edges: unknown[]
+  scene_root?: unknown
+}
+
+interface SavePayload {
+  projectId: string
+  components: SavePayloadComponent[]
+}
+
 export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
   const dispatch = useAppDispatch()
   const { activeWorkspaceTab, currentProject, components, selectedComponentId } =
@@ -45,6 +61,8 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
   const hasLoadedRef = useRef(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const savedStatusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const latestSavePayloadRef = useRef<SavePayload | null>(null)
+  const hasUnsavedChangesRef = useRef(false)
 
   const selectedComponent = useMemo(
     () => components.find((c) => c.id === selectedComponentId) ?? null,
@@ -59,6 +77,30 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
   })
   const [saveComponents] = useSaveProjectComponentsMutation()
 
+  const buildSavePayload = useCallback((): SavePayload | null => {
+    if (!currentProject) return null
+    return {
+      projectId: currentProject.id,
+      components: components.map((c, i) => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        sort_order: i,
+        nodes: c.nodes,
+        edges: c.edges,
+        scene_root: c.sceneRoot,
+      })),
+    }
+  }, [components, currentProject])
+
+  const persistPayload = useCallback(
+    async (payload: SavePayload) => {
+      await saveComponents(payload).unwrap()
+      hasUnsavedChangesRef.current = false
+    },
+    [saveComponents]
+  )
+
   // Load project into Redux when API data arrives
   useEffect(() => {
     if (!projectData) return
@@ -70,23 +112,17 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
   useEffect(() => {
     if (!hasLoadedRef.current || !currentProject) return
 
+    const payload = buildSavePayload()
+    if (!payload) return
+    latestSavePayloadRef.current = payload
+    hasUnsavedChangesRef.current = true
+
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
 
     saveTimerRef.current = setTimeout(async () => {
       setSaveStatus('saving')
       try {
-        await saveComponents({
-          projectId: currentProject.id,
-          components: components.map((c, i) => ({
-            id: c.id,
-            name: c.name,
-            description: c.description,
-            sort_order: i,
-            nodes: c.nodes,
-            edges: c.edges,
-            scene_root: c.sceneRoot,
-          })),
-        }).unwrap()
+        await persistPayload(payload)
         setSaveStatus('saved')
         if (savedStatusTimerRef.current) clearTimeout(savedStatusTimerRef.current)
         savedStatusTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
@@ -98,7 +134,40 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     }
-  }, [components, currentProject, saveComponents])
+  }, [buildSavePayload, currentProject, persistPayload])
+
+  // Flush pending save when the page is about to unload (refresh/close/navigation).
+  useEffect(() => {
+    const flushPendingSave = () => {
+      const payload = latestSavePayloadRef.current
+      if (!payload || !hasUnsavedChangesRef.current) return
+
+      const token = localStorage.getItem('token')
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+      const url = `${apiBase}/projects/${payload.projectId}/components`
+      const body = JSON.stringify({ components: payload.components })
+
+      // keepalive allows this request to complete during page refresh/unload.
+      fetch(url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body,
+        keepalive: true,
+      }).catch(() => {
+        // best-effort only; normal autosave still handles steady-state saves
+      })
+    }
+
+    window.addEventListener('pagehide', flushPendingSave)
+    window.addEventListener('beforeunload', flushPendingSave)
+    return () => {
+      window.removeEventListener('pagehide', flushPendingSave)
+      window.removeEventListener('beforeunload', flushPendingSave)
+    }
+  }, [])
 
   // Click outside to close dropdown
   useEffect(() => {
@@ -118,6 +187,11 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
       custom: CustomNode as React.ComponentType<any>,
     }),
     []
+  )
+
+  const workspaceGraphEditValue = useMemo(
+    () => ({ componentId: selectedComponentId, dispatch }),
+    [selectedComponentId, dispatch]
   )
 
   const onNodesChange = useCallback(
@@ -300,34 +374,36 @@ export function WorkspaceCanvas({ projectId }: WorkspaceCanvasProps) {
       <div className="flex-1 relative">
         {selectedComponentId ? (
           activeWorkspaceTab === 'node' ? (
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              nodeTypes={nodeTypes}
-              defaultEdgeOptions={edgeOptions}
-              fitView
-              className="wood-texture"
-            >
-              <Background
-                variant={BackgroundVariant.Dots}
-                gap={20}
-                size={1}
-                color="#8B7355"
-              />
-              <Controls className="bg-white/80 border-wood-brown" />
-              <MiniMap
-                className="bg-white/80 border-2 border-wood-brown"
-                nodeColor={(node) => {
-                  const data = node.data as { category?: keyof typeof NODE_CATEGORIES }
-                  return data?.category
-                    ? NODE_CATEGORIES[data.category]?.color ?? '#ccc'
-                    : '#ccc'
-                }}
-              />
-            </ReactFlow>
+            <WorkspaceGraphEditContext.Provider value={workspaceGraphEditValue}>
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                nodeTypes={nodeTypes}
+                defaultEdgeOptions={edgeOptions}
+                fitView
+                className="wood-texture"
+              >
+                <Background
+                  variant={BackgroundVariant.Dots}
+                  gap={20}
+                  size={1}
+                  color="#8B7355"
+                />
+                <Controls className="bg-white/80 border-wood-brown" />
+                <MiniMap
+                  className="bg-white/80 border-2 border-wood-brown"
+                  nodeColor={(node) => {
+                    const data = node.data as { category?: keyof typeof NODE_CATEGORIES }
+                    return data?.category
+                      ? NODE_CATEGORIES[data.category]?.color ?? '#ccc'
+                      : '#ccc'
+                  }}
+                />
+              </ReactFlow>
+            </WorkspaceGraphEditContext.Provider>
           ) : (
             <SceneEditor />
           )

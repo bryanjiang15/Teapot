@@ -3,6 +3,7 @@ import reducer, {
   addNodeToComponent,
   loadProject,
   updateComponentGraph,
+  updateComponentNodeData,
 } from '../../workspaceSlice'
 import type { ProjectWithComponents } from '@/types/project'
 import { NODE_TEMPLATES } from '@/lib/nodeRegistry'
@@ -93,7 +94,56 @@ describe('workspaceSlice component graph behavior', () => {
     const addedNode = next.components[0].nodes[1]
     expect(addedNode.id).toBe('node-1700000000000-4fzzzxj')
     expect(addedNode.position).toEqual({ x: 370, y: 100 })
-    expect(addedNode.data).toEqual(NODE_TEMPLATES['event-game-start'])
+    expect(addedNode.data).toEqual({
+      ...NODE_TEMPLATES['event-game-start'],
+      behaviorDescription: '',
+    })
+  })
+
+  it('updateComponentNodeData merges into one node only', () => {
+    const project = makeProject([
+      {
+        id: 'card',
+        name: 'Card',
+        nodes: [
+          {
+            id: 'n1',
+            type: 'custom',
+            position: { x: 0, y: 0 },
+            data: { label: 'A', behaviorDescription: '' },
+          },
+          {
+            id: 'n2',
+            type: 'custom',
+            position: { x: 10, y: 10 },
+            data: { label: 'B' },
+          },
+        ],
+        edges: [],
+      },
+      {
+        id: 'deck',
+        name: 'Deck',
+        nodes: [{ id: 'd1', type: 'custom', position: { x: 5, y: 5 }, data: { label: 'D' } }],
+        edges: [],
+      },
+    ])
+    const loaded = reducer(undefined, loadProject(project))
+
+    const next = reducer(
+      loaded,
+      updateComponentNodeData({
+        componentId: 'card',
+        nodeId: 'n1',
+        data: { behaviorDescription: 'Draw two cards when turn starts.' },
+      })
+    )
+
+    expect((next.components[0].nodes[0].data as { behaviorDescription?: string }).behaviorDescription).toBe(
+      'Draw two cards when turn starts.'
+    )
+    expect(next.components[0].nodes[1].data).toEqual({ label: 'B' })
+    expect(next.components[1].nodes[0].data).toEqual({ label: 'D' })
   })
 
   it('addNodeToComponent does nothing when component does not exist', () => {

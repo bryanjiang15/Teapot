@@ -1,16 +1,29 @@
-import { memo } from 'react'
-import { Handle, Position } from '@xyflow/react'
+import { memo, useCallback, type ChangeEvent } from 'react'
+import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { NodeData, NodeCategory } from '@/types/nodes'
 import { NODE_CATEGORIES } from '@/types/nodes'
 import { cn } from '@/lib/utils'
+import { useWorkspaceGraphEdit } from '../canvas/WorkspaceGraphEditContext'
+import { updateComponentNodeData } from '../workspaceSlice'
 
-interface CustomNodeProps {
-  data: NodeData
-  selected?: boolean
-}
+export const CustomNode = memo(({ id, data, selected }: NodeProps) => {
+  const graphEdit = useWorkspaceGraphEdit()
+  const d = data as NodeData
+  const categoryStyle = NODE_CATEGORIES[d.category as NodeCategory]
 
-export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
-  const categoryStyle = NODE_CATEGORIES[data.category as NodeCategory]
+  const onBehaviorChange = useCallback(
+    (e: ChangeEvent<HTMLTextAreaElement>) => {
+      if (!graphEdit?.componentId) return
+      graphEdit.dispatch(
+        updateComponentNodeData({
+          componentId: graphEdit.componentId,
+          nodeId: id,
+          data: { behaviorDescription: e.target.value },
+        })
+      )
+    },
+    [graphEdit, id]
+  )
 
   return (
     <div
@@ -25,7 +38,7 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
       {/* Header */}
       <div className="px-4 py-2 bg-black/10 rounded-t-md">
         <div className="text-sm font-semibold text-white">
-          {data.label}
+          {d.label}
         </div>
         <div className="text-xs text-white/80">
           {categoryStyle.label}
@@ -35,7 +48,7 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
       {/* Body */}
       <div className="px-4 py-3 space-y-2">
         {/* Parameters */}
-        {data.parameters.map((param) => (
+        {d.parameters.map((param) => (
           <div key={param.id} className="space-y-1">
             <label className="text-xs text-white/90 font-medium">
               {param.label}
@@ -63,17 +76,38 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
             )}
           </div>
         ))}
+
+        <div
+          className="space-y-1 pt-1 border-t border-black/10"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <label className="text-xs text-white/90 font-medium" htmlFor={`behavior-${id}`}>
+            What this node does
+          </label>
+          <textarea
+            id={`behavior-${id}`}
+            rows={3}
+            placeholder="Describe behavior in plain language for AI / compilation…"
+            value={d.behaviorDescription ?? ''}
+            onChange={onBehaviorChange}
+            readOnly={!graphEdit?.componentId}
+            className={cn(
+              'w-full px-2 py-1.5 text-sm rounded bg-white/90 border border-wood-brown text-foreground resize-y min-h-[4rem]',
+              !graphEdit?.componentId && 'opacity-70 cursor-not-allowed'
+            )}
+          />
+        </div>
       </div>
 
       {/* Input Handles */}
-      {data.inputs.map((input, index) => (
+      {d.inputs.map((input, index) => (
         <Handle
           key={input.id}
           type="target"
           position={Position.Left}
           id={input.id}
           style={{
-            top: `${((index + 1) / (data.inputs.length + 1)) * 100}%`,
+            top: `${((index + 1) / (d.inputs.length + 1)) * 100}%`,
             background: input.type === 'exec' ? '#fff' : getPortColor(input.type),
             width: input.type === 'exec' ? '12px' : '10px',
             height: input.type === 'exec' ? '12px' : '10px',
@@ -83,14 +117,14 @@ export const CustomNode = memo(({ data, selected }: CustomNodeProps) => {
       ))}
 
       {/* Output Handles */}
-      {data.outputs.map((output, index) => (
+      {d.outputs.map((output, index) => (
         <Handle
           key={output.id}
           type="source"
           position={Position.Right}
           id={output.id}
           style={{
-            top: `${((index + 1) / (data.outputs.length + 1)) * 100}%`,
+            top: `${((index + 1) / (d.outputs.length + 1)) * 100}%`,
             background: output.type === 'exec' ? '#fff' : getPortColor(output.type),
             width: output.type === 'exec' ? '12px' : '10px',
             height: output.type === 'exec' ? '12px' : '10px',
