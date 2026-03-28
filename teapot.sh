@@ -138,9 +138,6 @@ start_frontend() {
     cd ..
     
     echo -e "${GREEN}   ✓ Frontend started (PID: $pid)${NC}"
-    sleep 2
-    echo -e "${BLUE}   Opening frontend in browser...${NC}"
-    open_browser "http://localhost:5173"
     return 0
 }
 
