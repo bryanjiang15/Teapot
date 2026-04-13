@@ -4,7 +4,12 @@ import type { ProjectComponent, ProjectWithComponents } from '@/types/project'
 import type { NodeData } from '@/types/nodes'
 import type { SceneEntity, SceneEntityType, SceneRoot, SceneTransform } from '@/types/scene'
 import { DEFAULT_TRANSFORM } from '@/types/scene'
-import { NODE_TEMPLATES } from '@/lib/nodeRegistry'
+import {
+  DEFAULT_NODE_TEMPLATE_ID,
+  getNodeTemplate,
+  NODE_TEMPLATES,
+  resolveTemplateId,
+} from '@/lib/nodeRegistry'
 
 function generateSceneEntityId(): string {
   return `entity-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
@@ -144,6 +149,31 @@ const workspaceSlice = createSlice({
       if (!node?.data || typeof node.data !== 'object') return
       Object.assign(node.data as Record<string, unknown>, patch as Record<string, unknown>)
     },
+    /** Update a single parameter on a node (preserves compiler-facing eventType sync for custom listeners). */
+    updateComponentNodeParameter: (
+      state,
+      action: PayloadAction<{
+        componentId: string
+        nodeId: string
+        paramId: string
+        value: string | number | boolean
+      }>
+    ) => {
+      const { componentId, nodeId, paramId, value } = action.payload
+      const comp = state.components.find((c) => c.id === componentId)
+      if (!comp) return
+      const node = comp.nodes.find((n) => n.id === nodeId)
+      if (!node?.data || typeof node.data !== 'object') return
+      const data = node.data as NodeData
+      const idx = data.parameters.findIndex((p) => p.id === paramId)
+      if (idx < 0) return
+      data.parameters[idx] = { ...data.parameters[idx], value }
+      if (paramId === 'listenEventType') {
+        const s = String(value)
+        data.eventType = s
+        data.event_type = s
+      }
+    },
     /** Load project and its components; selects first component by default. */
     loadProject: (state, action: PayloadAction<ProjectWithComponents>) => {
       const project = action.payload
@@ -157,11 +187,32 @@ const workspaceSlice = createSlice({
       action: PayloadAction<{ componentId: string; templateId: string }>
     ) => {
       const { componentId, templateId } = action.payload
-      const template = NODE_TEMPLATES[templateId] ?? NODE_TEMPLATES['event-game-start']
+      const resolvedId = resolveTemplateId(templateId)
+      const storedTemplateId = Object.hasOwn(NODE_TEMPLATES, resolvedId)
+        ? resolvedId
+        : DEFAULT_NODE_TEMPLATE_ID
+      const template = getNodeTemplate(templateId)
       const comp = state.components.find((c) => c.id === componentId)
       if (!comp) return
       const nodeId = `node-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
       const count = comp.nodes.length
+      const data: NodeData = {
+        ...template,
+        templateId: storedTemplateId,
+        parameters: template.parameters.map((p) => ({ ...p })),
+        inputs: template.inputs.map((i) => ({ ...i })),
+        outputs: template.outputs.map((o) => ({ ...o })),
+        behaviorDescription: template.behaviorDescription ?? '',
+      }
+      const listenParam = data.parameters.find((p) => p.id === 'listenEventType')
+      if (
+        listenParam &&
+        (data.subkind === 'custom_listener' || storedTemplateId === 'trigger-custom-listener')
+      ) {
+        const s = String(listenParam.value ?? '')
+        data.eventType = s
+        data.event_type = s
+      }
       const newNode: Node = {
         id: nodeId,
         type: 'custom',
@@ -169,7 +220,7 @@ const workspaceSlice = createSlice({
           x: 150 + (count % 4) * 220,
           y: 100 + Math.floor(count / 4) * 120,
         },
-        data: { ...template, behaviorDescription: template.behaviorDescription ?? '' },
+        data,
       }
       comp.nodes = [...comp.nodes, newNode]
     },
@@ -282,6 +333,7 @@ export const {
   setSelectedSceneEntityId,
   updateComponentGraph,
   updateComponentNodeData,
+  updateComponentNodeParameter,
   loadProject,
   addNodeToComponent,
   addComponent,

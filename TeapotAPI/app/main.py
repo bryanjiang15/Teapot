@@ -36,6 +36,8 @@ app.include_router(projects_router)
 async def startup_event():
     """Initialize database on startup"""
     await init_db()
+    from app.services.compiler.agents.game_agents import register_game_agents
+    register_game_agents()
 
 
 @app.get("/")

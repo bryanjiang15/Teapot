@@ -19,6 +19,7 @@ from app.schemas.project import (
 )
 from app.schemas.ruleset import RulesetIRResponse, ScriptedComponentResponse
 from app.services.compiler.component_compiler import ComponentCompilerService
+from app.services.compiler.game_compilation_pipeline import GameCompilationPipeline
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 
@@ -174,31 +175,25 @@ async def compile_project(
     comp_repo = ComponentRepository(db)
     components = await comp_repo.list_by_project(project_id)
 
-    compiler = ComponentCompilerService()
-    results = {"compiled": [], "failed": []}
+    pipeline = GameCompilationPipeline()
+    pipeline_result = await pipeline.run(components, project_id)
 
     for component in components:
-        result = compiler.compile_component(component)
-        if result.success:
-            component.Kind = result.kind
-            component.Script = result.script
-            component.Properties = result.properties
-            component.EventSubscriptions = result.event_subscriptions
-            results["compiled"].append(str(component.ComponentId))
-        else:
-            results["failed"].append({
-                "id": str(component.ComponentId),
-                "name": component.Name,
-                "error": result.error,
-            })
+        cid = str(component.ComponentId)
+        comp_result = pipeline_result.compiled_map.get(cid)
+        if comp_result:
+            component.Kind = comp_result.kind
+            component.Script = comp_result.script
+            component.Properties = comp_result.properties
+            component.EventSubscriptions = comp_result.event_subscriptions
 
     await db.commit()
     return {
         "project_id": project_id,
-        "compiled_count": len(results["compiled"]),
-        "failed_count": len(results["failed"]),
-        "compiled": results["compiled"],
-        "failed": results["failed"],
+        "compiled_count": len(pipeline_result.compiled),
+        "failed_count": len(pipeline_result.failed),
+        "compiled": pipeline_result.compiled,
+        "failed": pipeline_result.failed,
     }
 
 
