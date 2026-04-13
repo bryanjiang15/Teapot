@@ -9,12 +9,14 @@ export function Workspace() {
   const { isAiPanelOpen, aiPanelWidth } = useAppSelector((state) => state.workspace)
 
   return (
-    <div className="h-[calc(100vh-4rem)] flex overflow-hidden">
-      {/* Left Sidebar - Tools */}
-      <ToolSidebar />
+    <div className="h-[calc(100vh-4rem)] flex min-h-0">
+      {/* Left Sidebar — not inside overflow-hidden so template flyouts can extend over the canvas */}
+      <div className="relative z-50 shrink-0">
+        <ToolSidebar />
+      </div>
 
-      {/* Center Canvas */}
-      <div className="flex-1 relative">
+      {/* Center Canvas — clip scroll/zoom to this region only */}
+      <div className="flex-1 min-w-0 min-h-0 overflow-hidden relative">
         <WorkspaceCanvas projectId={projectId || ''} />
       </div>
 
@@ -22,7 +24,7 @@ export function Workspace() {
       {isAiPanelOpen && (
         <div
           style={{ width: `${aiPanelWidth}px` }}
-          className="border-l-2 border-wood-brown bg-white/80 backdrop-blur-sm"
+          className="shrink-0 border-l-2 border-wood-brown bg-white/80 backdrop-blur-sm overflow-hidden min-h-0"
         >
           <AIAssistant />
         </div>

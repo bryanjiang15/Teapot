@@ -6,7 +6,7 @@ import reducer, {
   updateComponentNodeData,
 } from '../../workspaceSlice'
 import type { ProjectWithComponents } from '@/types/project'
-import { NODE_TEMPLATES } from '@/lib/nodeRegistry'
+import { getNodeTemplate, DEFAULT_NODE_TEMPLATE_ID } from '@/lib/nodeRegistry'
 
 function makeProject(components: ProjectWithComponents['components']): ProjectWithComponents {
   return {
@@ -94,8 +94,13 @@ describe('workspaceSlice component graph behavior', () => {
     const addedNode = next.components[0].nodes[1]
     expect(addedNode.id).toBe('node-1700000000000-4fzzzxj')
     expect(addedNode.position).toEqual({ x: 370, y: 100 })
+    const expectedTemplate = getNodeTemplate(DEFAULT_NODE_TEMPLATE_ID)
     expect(addedNode.data).toEqual({
-      ...NODE_TEMPLATES['event-game-start'],
+      ...expectedTemplate,
+      templateId: DEFAULT_NODE_TEMPLATE_ID,
+      parameters: expectedTemplate.parameters.map((p) => ({ ...p })),
+      inputs: expectedTemplate.inputs.map((i) => ({ ...i })),
+      outputs: expectedTemplate.outputs.map((o) => ({ ...o })),
       behaviorDescription: '',
     })
   })
@@ -158,7 +163,7 @@ describe('workspaceSlice component graph behavior', () => {
     const loaded = reducer(undefined, loadProject(project))
     const next = reducer(
       loaded,
-      addNodeToComponent({ componentId: 'does-not-exist', templateId: 'event-game-start' })
+      addNodeToComponent({ componentId: 'does-not-exist', templateId: DEFAULT_NODE_TEMPLATE_ID })
     )
 
     expect(next.components[0].nodes).toHaveLength(0)

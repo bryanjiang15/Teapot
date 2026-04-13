@@ -1,4 +1,5 @@
-export type NodeCategory = 'event' | 'function' | 'flow' | 'variable' | 'target' | 'input'
+/** Canonical five node families for the workspace graph. */
+export type NodeCategory = 'trigger' | 'state' | 'input' | 'flow' | 'function'
 
 export type PortType = 'exec' | 'object' | 'number' | 'boolean' | 'string'
 
@@ -26,36 +27,50 @@ export interface Parameter {
 export interface NodeData {
   label: string
   category: NodeCategory
+  /** Set when instantiated from NODE_TEMPLATES (for compiler / round-trip). */
+  templateId?: string
+  /**
+   * Fine-grained kind for agents: lifecycle_trigger, custom_listener, emit_event,
+   * variable, variable_reference, set_property, constant, target_selection, etc.
+   */
+  subkind?: string
+  /** Domain or system event type this trigger listens for (not used for emit nodes). */
+  eventType?: string
+  /** Alias for backends that expect snake_case. */
+  event_type?: string
   inputs: InputPort[]
   outputs: OutputPort[]
   parameters: Parameter[]
   /** Natural-language behavior for CreatorAPI / compiler node_summary (AI script generation). */
   behaviorDescription?: string
+  /** Tighter layout and typography (e.g. variable reference nodes). */
+  compact?: boolean
+  /** Omit the “What this node does” block in the canvas UI. */
+  hideBehaviorDescription?: boolean
 }
 
-export const NODE_CATEGORIES = {
-  event: {
+export const NODE_CATEGORIES: Record<
+  NodeCategory,
+  { color: string; label: string }
+> = {
+  trigger: {
     color: '#B8DDB8',
-    label: 'Event',
+    label: 'Trigger',
   },
-  function: {
-    color: '#B8D8E8',
-    label: 'Function',
-  },
-  flow: {
-    color: '#D8C7E8',
-    label: 'Flow Control',
-  },
-  variable: {
+  state: {
     color: '#F5E6B8',
-    label: 'Variable',
-  },
-  target: {
-    color: '#FF8C42',
-    label: 'Target Selector',
+    label: 'State / property',
   },
   input: {
     color: '#E8D5B7',
     label: 'Input',
+  },
+  flow: {
+    color: '#D8C7E8',
+    label: 'Flow',
+  },
+  function: {
+    color: '#B8D8E8',
+    label: 'Function',
   },
 }
